@@ -15,10 +15,10 @@
 """
 qoro-maestro-pyscf
 ==================
-PySCF integration plugin for the Maestro quantum simulator (Qoro Quantum).
+PySCF integration plugin for the Maestro GPU quantum simulator (Qoro Quantum).
 
-Drop-in replacement for ``qiskit-nature-pyscf``, using Maestro's native
-GPU-accelerated backends instead of Qiskit.
+Enables GPU-accelerated VQE calculations within PySCF's CASCI/CASSCF
+framework using Maestro's native backends.
 
 Primary API
 -----------
@@ -57,4 +57,4 @@ __all__ = [
     "compute_dipole_moment",
     "compute_natural_orbitals",
 ]
-__version__ = "0.1.0"
+__version__ = "0.1.1"

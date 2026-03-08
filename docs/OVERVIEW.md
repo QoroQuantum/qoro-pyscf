@@ -2,7 +2,7 @@
 
 ## What Is This?
 
-`qoro-maestro-pyscf` is a PySCF integration plugin for the [Maestro](https://qoroquantum.github.io/maestro/) quantum simulator by [Qoro Quantum](https://qoroquantum.de). It's a **drop-in replacement** for [qiskit-nature-pyscf](https://github.com/qiskit-community/qiskit-nature-pyscf), with zero Qiskit dependencies.
+`qoro-maestro-pyscf` is a PySCF integration plugin for the [Maestro](https://qoroquantum.github.io/maestro/) GPU quantum simulator by [Qoro Quantum](https://qoroquantum.de). It enables GPU-accelerated VQE calculations within PySCF's CASCI/CASSCF framework.
 
 It lets you run quantum chemistry calculations (VQE) on Maestro's GPU-accelerated backends directly within PySCF's CASCI/CASSCF framework.
 
