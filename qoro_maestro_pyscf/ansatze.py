@@ -252,6 +252,124 @@ def uccsd_param_count(n_qubits: int, nelec: int | tuple[int, int]) -> int:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# UpCCD Ansatz (Unitary paired Coupled Cluster Doubles)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _get_upccd_excitations(
+    n_qubits: int, nelec: tuple[int, int]
+) -> list[tuple[int, int]]:
+    """
+    Enumerate paired double excitation indices (spatial orbital basis).
+
+    Paired doubles excite both α and β electrons from the same occupied
+    spatial orbital *i* to the same virtual spatial orbital *a*:
+
+        a†_{aα} a†_{aβ} a_{iβ} a_{iα} − h.c.
+
+    This preserves seniority zero (all spatial orbitals are either doubly
+    occupied or empty), making UpCCD an excellent ansatz for singlet states.
+
+    Parameters
+    ----------
+    n_qubits : int
+        Number of qubits (spin-orbitals).
+    nelec : (int, int)
+        Number of (alpha, beta) electrons.
+
+    Returns
+    -------
+    pairs : list of (i, a)
+        Spatial orbital indices for each paired excitation.
+        The corresponding spin-orbital qubits are (2i, 2i+1) → (2a, 2a+1).
+
+    References
+    ----------
+    - Nam et al., arXiv:2309.12396
+    - Khamoshi, arXiv:2508.21679 (oo-pCCD-UpCCD)
+    """
+    n_alpha, n_beta = nelec
+    n_spatial = n_qubits // 2
+
+    # Paired excitations: spatial orbital i (doubly occupied) → a (empty)
+    # Only pairs where both α and β are occupied/virtual
+    n_occ = min(n_alpha, n_beta)  # number of doubly-occupied spatial orbitals
+    occ_spatial = list(range(n_occ))
+    vir_spatial = list(range(max(n_alpha, n_beta), n_spatial))
+
+    pairs = [(i, a) for i in occ_spatial for a in vir_spatial]
+    return pairs
+
+
+def upccd_ansatz(
+    params: np.ndarray,
+    n_qubits: int,
+    nelec: int | tuple[int, int],
+) -> QuantumCircuit:
+    """
+    Build a UpCCD (Unitary paired Coupled Cluster Doubles) ansatz.
+
+    Uses only **paired** double excitations — both electrons from the same
+    spatial orbital excite to the same virtual spatial orbital.  This yields
+    an extremely compact circuit suitable for seniority-zero singlet states.
+
+    Compared to UCCSD:
+    - Far fewer parameters: N_occ × N_vir (vs. O(N² × M²) for full doubles)
+    - Shallower circuits with fewer CNOT gates
+    - Exact for seniority-zero states when combined with orbital optimisation
+
+    Amplitudes can be initialised from a classical pCCD calculation (no VQE
+    optimisation needed), following arXiv:2508.21679.
+
+    Parameters
+    ----------
+    params : array-like
+        Variational amplitudes. Length = number of paired excitations.
+        Can be from VQE optimisation or from classical pCCD amplitudes.
+    n_qubits : int
+        Number of qubits (spin-orbitals).
+    nelec : int or (int, int)
+        Number of electrons.
+
+    Returns
+    -------
+    QuantumCircuit
+        The UpCCD circuit.
+    """
+    if isinstance(nelec, int):
+        n_beta = nelec // 2
+        n_alpha = nelec - n_beta
+        nelec = (n_alpha, n_beta)
+
+    qc = _QC()
+
+    # 1. Hartree-Fock initial state
+    _apply_hf_gates(qc, n_qubits, nelec)
+
+    # 2. Enumerate paired excitations
+    pairs = _get_upccd_excitations(n_qubits, nelec)
+
+    # 3. Apply paired double excitation circuits
+    for idx, (i_spat, a_spat) in enumerate(pairs):
+        theta = float(params[idx])
+        # Map spatial → spin-orbital indices (interleaved JW ordering)
+        i_alpha, i_beta = 2 * i_spat, 2 * i_spat + 1
+        a_alpha, a_beta = 2 * a_spat, 2 * a_spat + 1
+        _apply_double_excitation(qc, i_alpha, i_beta, a_alpha, a_beta, theta)
+
+    return qc
+
+
+def upccd_param_count(n_qubits: int, nelec: int | tuple[int, int]) -> int:
+    """Return the number of UpCCD parameters (= N_occ × N_vir)."""
+    if isinstance(nelec, int):
+        n_beta = nelec // 2
+        n_alpha = nelec - n_beta
+        nelec = (n_alpha, n_beta)
+    pairs = _get_upccd_excitations(n_qubits, nelec)
+    return len(pairs)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Circuit primitives for excitation operators (JW-mapped)
 # ──────────────────────────────────────────────────────────────────────────────
 

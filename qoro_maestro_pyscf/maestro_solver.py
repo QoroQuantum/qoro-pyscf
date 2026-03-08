@@ -52,6 +52,8 @@ from qoro_maestro_pyscf.ansatze import (
     hardware_efficient_param_count,
     uccsd_ansatz,
     uccsd_param_count,
+    upccd_ansatz,
+    upccd_param_count,
 )
 from qoro_maestro_pyscf.expectation import compute_energy
 from qoro_maestro_pyscf.rdm import (
@@ -227,6 +229,8 @@ class MaestroSolver:
         # --- Determine parameter count ---
         if self.ansatz == "uccsd":
             n_params = uccsd_param_count(n_qubits, self._nelec)
+        elif self.ansatz == "upccd":
+            n_params = upccd_param_count(n_qubits, self._nelec)
         else:
             n_params = hardware_efficient_param_count(n_qubits, self.ansatz_layers)
 
@@ -244,6 +248,8 @@ class MaestroSolver:
         def cost(params):
             if self.ansatz == "uccsd":
                 qc = uccsd_ansatz(params, n_qubits, self._nelec)
+            elif self.ansatz == "upccd":
+                qc = upccd_ansatz(params, n_qubits, self._nelec)
             else:
                 qc = hardware_efficient_ansatz(
                     params, n_qubits, self.ansatz_layers,
@@ -285,6 +291,10 @@ class MaestroSolver:
         # --- Build the final optimised circuit (for RDM reconstruction) ---
         if self.ansatz == "uccsd":
             self._optimal_circuit = uccsd_ansatz(
+                self.optimal_params, n_qubits, self._nelec
+            )
+        elif self.ansatz == "upccd":
+            self._optimal_circuit = upccd_ansatz(
                 self.optimal_params, n_qubits, self._nelec
             )
         else:

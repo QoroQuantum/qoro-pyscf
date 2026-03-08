@@ -145,6 +145,53 @@ class TestAnsatzeUnit:
         assert qc is not None
 
 
+class TestUpCCDUnit:
+    """Test UpCCD ansatz parameter counting and excitation enumeration."""
+
+    def test_upccd_param_count(self):
+        from qoro_maestro_pyscf.ansatze import upccd_param_count
+        # H₂: 4 qubits, (1,1) → 1 occ spatial, 1 vir spatial → 1 pair
+        assert upccd_param_count(4, (1, 1)) == 1
+
+    def test_upccd_param_count_larger(self):
+        from qoro_maestro_pyscf.ansatze import upccd_param_count
+        # 6 qubits, (2,2) → 2 occ spatial, 1 vir spatial → 2 pairs
+        assert upccd_param_count(6, (2, 2)) == 2
+
+    def test_upccd_param_count_int(self):
+        from qoro_maestro_pyscf.ansatze import upccd_param_count
+        assert upccd_param_count(4, 2) == upccd_param_count(4, (1, 1))
+
+    def test_upccd_fewer_than_uccsd(self):
+        """UpCCD should always have fewer params than UCCSD."""
+        from qoro_maestro_pyscf.ansatze import upccd_param_count, uccsd_param_count
+        for n_qubits, nelec in [(4, (1, 1)), (6, (2, 2)), (8, (3, 3))]:
+            assert upccd_param_count(n_qubits, nelec) < uccsd_param_count(n_qubits, nelec)
+
+    def test_upccd_excitations_are_paired(self):
+        """All excitations should be between doubly-occupied and empty spatial orbitals."""
+        from qoro_maestro_pyscf.ansatze import _get_upccd_excitations
+        pairs = _get_upccd_excitations(8, (2, 2))
+        n_spatial = 4
+        for i, a in pairs:
+            assert 0 <= i < 2  # doubly-occupied spatial orbitals
+            assert 2 <= a < n_spatial  # virtual spatial orbitals
+
+    @pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
+    def test_upccd_builds(self):
+        from qoro_maestro_pyscf.ansatze import upccd_ansatz, upccd_param_count
+        n_params = upccd_param_count(4, (1, 1))
+        qc = upccd_ansatz(np.zeros(n_params), 4, (1, 1))
+        assert qc is not None
+
+    @pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
+    def test_upccd_with_int_nelec(self):
+        from qoro_maestro_pyscf.ansatze import upccd_ansatz, upccd_param_count
+        n_params = upccd_param_count(4, 2)
+        qc = upccd_ansatz(np.zeros(n_params), 4, 2)
+        assert qc is not None
+
+
 class TestBackendsUnit:
     """Test backend configuration logic."""
 
