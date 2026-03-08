@@ -264,15 +264,21 @@ class MaestroSolver:
         if self.initial_point is not None:
             x0 = np.asarray(self.initial_point, dtype=float)
         else:
-            np.random.seed(42)
-            x0 = np.random.uniform(-0.1, 0.1, size=n_params)
+            # Use wider spread than zero — too-small values keep UCCSD
+            # stuck at the HF solution (all excitation amplitudes ≈ 0).
+            rng = np.random.default_rng(42)
+            x0 = rng.uniform(-np.pi / 4, np.pi / 4, size=n_params)
 
         # --- Optimise ---
+        opts: dict = {"maxiter": self.maxiter}
+        if self.optimizer.upper() == "COBYLA":
+            opts["rhobeg"] = 0.3
+
         t0 = time.perf_counter()
         opt = minimize(
             cost, x0,
             method=self.optimizer,
-            options={"maxiter": self.maxiter, "rhobeg": 0.5},
+            options=opts,
         )
         self.vqe_time = time.perf_counter() - t0
         self.converged = opt.success

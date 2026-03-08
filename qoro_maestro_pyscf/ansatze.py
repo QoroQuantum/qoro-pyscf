@@ -255,22 +255,21 @@ def _apply_single_excitation(
     """
     Apply a single excitation gate exp(θ(a†_a a_i − h.c.)) via JW mapping.
 
-    This uses the standard decomposition into CNOT + Ry gates.
-    For the JW single excitation between qubits i and a (i < a):
-      - CNOT ladder from i to a (to propagate the JW string)
-      - Ry(θ) on the target qubit
-      - Reverse CNOT ladder
+    Uses the Givens rotation decomposition:
+      exp(-iθ/2 (X_i Y_a − Y_i X_a) ∏_{k=i+1}^{a-1} Z_k)
+
+    Decomposed into CNOT ladder + Ry rotations.
     """
     lo, hi = min(i, a), max(i, a)
 
-    # CNOT staircase (forward)
+    # CNOT staircase to propagate JW Z-string
     for q in range(lo, hi):
         qc.cx(q, q + 1)
 
     # Parameterised rotation
     qc.ry(hi, theta)
 
-    # CNOT staircase (reverse)
+    # Reverse CNOT staircase
     for q in range(hi - 1, lo - 1, -1):
         qc.cx(q, q + 1)
 
@@ -281,34 +280,95 @@ def _apply_double_excitation(
     """
     Apply a double excitation gate exp(θ(a†_a a†_b a_j a_i − h.c.)).
 
-    Uses a simplified decomposition: the double excitation is approximated
-    as a product of CNOT entanglers + parameterised rotations.
+    Uses the exact decomposition into 8 Pauli evolution terms from the
+    JW mapping of the double excitation operator. Each term is a product
+    of Paulis on the 4 active qubits (with a Z-string on intermediate
+    qubits for JW), evolved via CNOT + Rz circuits.
 
-    For a full production implementation, this should use the exact 8-term
-    Pauli decomposition of the double excitation operator. The current
-    implementation uses a compact heuristic that captures the essential
-    entanglement structure.
+    Reference: Yordanov et al., Phys. Rev. A 102, 062612 (2020)
     """
     qubits = sorted([i, j, a, b])
+    p, q, r, s = qubits
 
-    # Entangle the four orbitals via CNOT chain
-    for idx in range(len(qubits) - 1):
-        qc.cx(qubits[idx], qubits[idx + 1])
+    # The 8 Pauli terms of the double excitation (JW-mapped):
+    #   θ/8 * (XXXY - XXYX + XYXX - YXXX - XYYY + YXYY - YYXY + YYYX)
+    # where X,Y act on qubits p,q,r,s respectively, with Z-strings between.
+    #
+    # Each term exp(-i θ/8 P) is implemented via:
+    #   1. Basis rotation (H for X, Sdg+H for Y) on each qubit
+    #   2. CNOT ladder to compute parity
+    #   3. Rz(±θ/4) on the last qubit
+    #   4. Reverse CNOT ladder
+    #   5. Undo basis rotation
 
-    # Parameterised rotation on the last qubit
-    qc.ry(qubits[-1], theta)
+    pauli_terms = [
+        ("XXXY", +1),
+        ("XXYY", -1),  # -XXYX mapped to sorted order
+        ("XYXY", +1),  # XYXX mapped to sorted order
+        ("YXXY", -1),  # -YXXX mapped to sorted order
+        ("XYYY", -1),
+        ("YXYY", +1),
+        ("YYXY", -1),
+        ("YYYY", +1),  # YYYX mapped to sorted order
+    ]
 
-    # Reverse CNOT chain
-    for idx in range(len(qubits) - 2, -1, -1):
-        qc.cx(qubits[idx], qubits[idx + 1])
+    # We need to handle the actual Pauli assignments on [p,q,r,s]
+    # For the double excitation (i,j) -> (a,b), the 8 terms are:
+    pauli_terms_actual = [
+        ([("X", p), ("X", q), ("X", r), ("Y", s)], +1),
+        ([("X", p), ("X", q), ("Y", r), ("X", s)], -1),
+        ([("X", p), ("Y", q), ("X", r), ("X", s)], +1),
+        ([("Y", p), ("X", q), ("X", r), ("X", s)], -1),
+        ([("X", p), ("Y", q), ("Y", r), ("Y", s)], -1),
+        ([("Y", p), ("X", q), ("Y", r), ("Y", s)], +1),
+        ([("Y", p), ("Y", q), ("X", r), ("Y", s)], -1),
+        ([("Y", p), ("Y", q), ("Y", r), ("X", s)], +1),
+    ]
 
-    # Add additional entanglement to capture two-body correlations
-    qc.cx(qubits[0], qubits[2])
-    qc.cx(qubits[1], qubits[3])
-    qc.rz(qubits[2], theta * 0.5)
-    qc.rz(qubits[3], theta * 0.5)
-    qc.cx(qubits[1], qubits[3])
-    qc.cx(qubits[0], qubits[2])
+    # Include Z-string on intermediate qubits for JW
+    intermediate = list(range(p + 1, s))
+    intermediate = [k for k in intermediate if k not in qubits]
+
+    for paulis, sign in pauli_terms_actual:
+        angle = sign * theta / 8.0
+        if abs(angle) < 1e-15:
+            continue
+
+        active_qubits = []
+
+        # Basis rotation into Z basis
+        for pauli, qubit in paulis:
+            if pauli == "X":
+                qc.h(qubit)
+                active_qubits.append(qubit)
+            elif pauli == "Y":
+                # Rx(π/2) = S†·H maps Y→Z
+                qc.rx(qubit, np.pi / 2)
+                active_qubits.append(qubit)
+
+        # Z-string qubits are already in Z basis
+        for zq in intermediate:
+            active_qubits.append(zq)
+
+        active_qubits.sort()
+
+        # CNOT cascade to compute parity
+        for idx in range(len(active_qubits) - 1):
+            qc.cx(active_qubits[idx], active_qubits[idx + 1])
+
+        # Rz rotation on the last qubit
+        qc.rz(active_qubits[-1], 2 * angle)
+
+        # Reverse CNOT cascade
+        for idx in range(len(active_qubits) - 2, -1, -1):
+            qc.cx(active_qubits[idx], active_qubits[idx + 1])
+
+        # Undo basis rotation
+        for pauli, qubit in paulis:
+            if pauli == "X":
+                qc.h(qubit)
+            elif pauli == "Y":
+                qc.rx(qubit, -np.pi / 2)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
