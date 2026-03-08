@@ -44,6 +44,13 @@ python full_workflow/full_workflow.py --gpu
 | # | Script | Topic | Qubits | Key Concepts |
 |---|--------|-------|:------:|-------------|
 | 9 | [09_upccd_paired_doubles.py](09_upccd_paired_doubles.py) | UpCCD vs UCCSD | 8 | Seniority-zero, paired doubles, parameter efficiency |
+| 11 | [11_adapt_vqe.py](11_adapt_vqe.py) | ADAPT-VQE | 8 | Adaptive circuit growing, operator pool, compact ansatze |
+
+### GPU Benchmarking
+
+| # | Script | Topic | Qubits | Key Concepts |
+|---|--------|-------|:------:|-------------|
+| 10 | [10_gpu_benchmark.py](10_gpu_benchmark.py) | GPU vs CPU scaling | 8–20 | H-chain scaling, UpCCD, GPU speedup measurement |
 
 ### Full Pipeline
 

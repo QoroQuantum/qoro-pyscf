@@ -22,7 +22,7 @@ PySCF (RDMs → orbital optimisation → energy)
 
 1. **PySCF calls `kernel(h1, h2, norb, nelec)`** — passes one- and two-electron integrals from the active space
 2. **We build the qubit Hamiltonian** — Jordan-Wigner transformation via OpenFermion
-3. **We build the ansatz circuit** — hardware-efficient, UCCSD, or UpCCD, as native Maestro `QuantumCircuit` objects
+3. **We build the ansatz circuit** — hardware-efficient, UCCSD, UpCCD, or ADAPT-VQE, as native Maestro `QuantumCircuit` objects
 4. **We run VQE on Maestro's GPU** — SciPy optimiser + Maestro's `qc.estimate()` for expectation values
 5. **We return `(energy, self)` to PySCF** — and reconstruct RDMs on demand from the optimised circuit
 
@@ -39,6 +39,7 @@ In qiskit-nature-pyscf, the heavy lifting is done by `qiskit-nature` (Electronic
 | **`maestro_solver.py`** | `MaestroSolver` — PySCF `fcisolver` drop-in. Orchestrates the VQE loop and exposes RDM methods. |
 | **`hamiltonian.py`** | Converts PySCF integrals to qubit Hamiltonian (Jordan-Wigner via OpenFermion). Handles both RHF and UHF integral formats. |
 | **`ansatze.py`** | Builds parameterised quantum circuits: Hartree-Fock initial state, hardware-efficient (Ry/Rz + CNOT), UCCSD, and UpCCD (paired doubles for singlets). |
+| **`adapt.py`** | ADAPT-VQE: adaptive circuit growing by operator gradient screening. Produces the most compact ansatz for a given accuracy target. |
 | **`expectation.py`** | Wraps Maestro's `qc.estimate()` for batched Pauli expectation values. |
 | **`rdm.py`** | Reconstructs 1-RDM and 2-RDM from the VQE circuit by measuring JW-mapped fermionic operators. |
 | **`backends.py`** | GPU/CPU detection, statevector/MPS configuration, license key management. |

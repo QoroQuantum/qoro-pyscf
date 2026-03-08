@@ -8,16 +8,20 @@ The primary class — a PySCF `fcisolver` drop-in that runs VQE on Maestro.
 from qoro_maestro_pyscf import MaestroSolver
 
 solver = MaestroSolver(
-    ansatz="hardware_efficient",   # "hardware_efficient", "uccsd", or "upccd"
+    ansatz="hardware_efficient",   # "hardware_efficient", "uccsd", "upccd", or "adapt"
     ansatz_layers=2,               # layers for hardware-efficient ansatz
     optimizer="COBYLA",            # any scipy.optimize method
-    maxiter=200,                   # max VQE iterations
+    maxiter=200,                   # max VQE iterations (0 = use initial_point directly)
     backend="gpu",                 # "gpu" or "cpu"
     simulation="statevector",      # "statevector" or "mps"
     mps_bond_dim=64,               # MPS bond dimension (if simulation="mps")
     license_key=None,              # Maestro GPU license key (optional)
     initial_point=None,            # initial parameter vector (optional)
     verbose=True,                  # print VQE progress
+    # ADAPT-VQE parameters (only used when ansatz="adapt"):
+    adapt_threshold=1e-3,          # convergence: stop when max |gradient| below this
+    adapt_max_ops=50,              # max operators to add
+    adapt_pool="sd",               # operator pool: "sd" (singles+doubles) or "d" (doubles)
 )
 ```
 
@@ -128,8 +132,10 @@ from qoro_maestro_pyscf.ansatze import (
 
 ```python
 from qoro_maestro_pyscf.expectation import (
-    evaluate_expectation,  # (circuit, pauli_labels, config) → np.ndarray
-    compute_energy,        # (circuit, offset, labels, coeffs, config) → float
+    evaluate_expectation,    # (circuit, pauli_labels, config) → np.ndarray
+    compute_energy,          # (circuit, offset, labels, coeffs, config) → float
+    get_state_probabilities, # (circuit, config) → np.ndarray
+    compute_state_fidelity,  # (circuit_a, circuit_b, config) → float
 )
 ```
 
