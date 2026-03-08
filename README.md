@@ -75,7 +75,7 @@ export MAESTRO_LICENSE_KEY="XXXX-XXXX-XXXX-XXXX"
 - **GPU-accelerated** statevector & MPS simulation via Maestro's CUDA backend
 - **Automatic GPU→CPU fallback** when no GPU is available
 - **Drop-in PySCF solver** — implements the full `fcisolver` protocol (`kernel`, `make_rdm1`, `make_rdm1s`, `make_rdm12`, `make_rdm12s`)
-- **CASCI and CASSCF** support (CASSCF via RDM reconstruction)
+- **CASCI and CASSCF** support (CASCI recommended; CASSCF works but VQE convergence can be tricky in the macro-iteration loop)
 - **Multiple ansatze** — hardware-efficient and UCCSD
 - **UHF support** — handles spin-unrestricted integrals
 
@@ -88,6 +88,7 @@ qoro_maestro_pyscf/
 ├── ansatze.py          # HF initial state, hardware-efficient, UCCSD
 ├── expectation.py      # Maestro circuit evaluation wrapper
 ├── rdm.py              # RDM reconstruction from VQE circuit
+├── properties.py       # Dipole moments, natural orbitals
 └── backends.py         # GPU/CPU/MPS backend configuration
 ```
 
@@ -98,14 +99,11 @@ qoro_maestro_pyscf/
 | `qoro-maestro` | Quantum circuit simulation (GPU/CPU) |
 | `pyscf` | Molecular integrals & classical reference |
 | `openfermion` | Jordan-Wigner mapping & RDM operators |
-| `openfermionpyscf` | PySCF ↔ OpenFermion bridge |
 | `scipy` | Classical parameter optimisation |
 
-## Standalone Demo
+## Examples
 
-```bash
-python vqe_maestro_pyscf.py
-```
+See the [examples/](examples/) directory for 8 worked examples and a full workflow notebook covering H₂ dissociation, LiH UCCSD, GPU benchmarking, MPS bond dimensions, CASSCF, NEVPT2, dipole moments, and geometry optimisation.
 
 ## License
 
