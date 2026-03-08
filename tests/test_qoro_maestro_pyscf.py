@@ -30,6 +30,15 @@ import numpy as np
 import pytest
 
 
+def _has_maestro() -> bool:
+    """Check if the Maestro native library is available."""
+    try:
+        import maestro  # noqa: F401
+        return True
+    except (ImportError, OSError):
+        return False
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Unit Tests — Pure logic, no external deps beyond numpy
 # ══════════════════════════════════════════════════════════════════════════════
@@ -313,6 +322,7 @@ class TestHamiltonianIntegration:
             assert abs(c.imag) < 1e-10, f"Non-real coefficient: {c}"
 
 
+@pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
 class TestMaestroSolverIntegration:
     """Test MaestroSolver construction and validation."""
 
@@ -371,6 +381,7 @@ class TestMaestroSolverIntegration:
         assert solver._spin_penalty_ss == 0.0  # singlet
 
 
+@pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
 class TestPackageExports:
     """Test that all public API is exported correctly."""
 
