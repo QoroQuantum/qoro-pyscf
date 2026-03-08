@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "PySCF integration plugin for the Maestro quantum simulator (Qoro Quantum) — drop-in replacement for qiskit-nature-pyscf"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Qoro Quantum Ltd.", email = "team@qoroquantum.de"},
 ]
@@ -21,7 +21,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -73,7 +72,7 @@ readme = "README.md"
 packages = [{include = "qoro_maestro_pyscf"}]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.10,<3.13"
 pyscf = ">=2.0"
 openfermion = ">=1.5"
 scipy = ">=1.7"
