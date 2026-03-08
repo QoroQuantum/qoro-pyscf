@@ -192,6 +192,45 @@ class TestUpCCDUnit:
         assert qc is not None
 
 
+class TestAdaptUnit:
+    """Test ADAPT-VQE operator pool and convergence logic."""
+
+    def test_operator_pool_sd(self):
+        from qoro_maestro_pyscf.adapt import build_operator_pool
+        ops = build_operator_pool(4, (1, 1), pool="sd")
+        # H2: 4 singles + 1 double = 5
+        singles = [o for o in ops if o.kind == "single"]
+        doubles = [o for o in ops if o.kind == "double"]
+        assert len(singles) == 4
+        assert len(doubles) == 1
+        assert len(ops) == 5
+
+    def test_operator_pool_d_only(self):
+        from qoro_maestro_pyscf.adapt import build_operator_pool
+        ops = build_operator_pool(4, (1, 1), pool="d")
+        # Doubles only
+        assert all(o.kind == "double" for o in ops)
+        assert len(ops) == 1
+
+    def test_operator_pool_larger(self):
+        from qoro_maestro_pyscf.adapt import build_operator_pool
+        ops = build_operator_pool(8, (2, 2), pool="sd")
+        # Should have both singles and doubles
+        singles = [o for o in ops if o.kind == "single"]
+        doubles = [o for o in ops if o.kind == "double"]
+        assert len(singles) > 0
+        assert len(doubles) > 0
+        assert len(ops) == len(singles) + len(doubles)
+
+    @pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
+    def test_adapt_builds_circuit(self):
+        from qoro_maestro_pyscf.adapt import Operator, _build_adapt_circuit
+        import numpy as np
+        ops = [Operator(kind="double", indices=(0, 1, 2, 3))]
+        qc = _build_adapt_circuit(4, (1, 1), ops, np.array([0.5]))
+        assert qc is not None
+
+
 class TestBackendsUnit:
     """Test backend configuration logic."""
 

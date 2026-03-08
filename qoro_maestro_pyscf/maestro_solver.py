@@ -137,6 +137,11 @@ class MaestroSolver:
     initial_point: Optional[np.ndarray] = None
     verbose: bool = True
 
+    # --- ADAPT-VQE parameters ---
+    adapt_threshold: float = 1e-3
+    adapt_max_ops: int = 50
+    adapt_pool: str = "sd"
+
     # --- PySCF interface attributes (set by CASCI/CASSCF) ---
     mol: object = field(default=None, repr=False)
     nroots: int = 1
@@ -237,6 +242,41 @@ class MaestroSolver:
         if self.verbose:
             print(f"  [MaestroSolver] Params  : {n_params}")
             print(f"  [MaestroSolver] Paulis  : {len(pauli_labels)}")
+
+        # ──────────── ADAPT-VQE branch ────────────
+        if self.ansatz == "adapt":
+            from qoro_maestro_pyscf.adapt import run_adapt_vqe
+
+            adapt_result = run_adapt_vqe(
+                n_qubits=n_qubits,
+                nelec=self._nelec,
+                identity_offset=identity_offset,
+                pauli_labels=pauli_labels,
+                pauli_coeffs=pauli_coeffs,
+                config=self._config,
+                pool=self.adapt_pool,
+                gradient_threshold=self.adapt_threshold,
+                max_operators=self.adapt_max_ops,
+                optimizer=self.optimizer,
+                maxiter_per_step=self.maxiter,
+                verbose=self.verbose,
+            )
+
+            self.optimal_params = adapt_result["params"]
+            self._optimal_circuit = adapt_result["circuit"]
+            self.converged = adapt_result["converged"]
+            self.energy_history = adapt_result["energy_history"]
+            self.vqe_time = 0.0  # timing is in ADAPT loop
+
+            e_vqe = adapt_result["energy"]
+            e_tot = e_vqe + ecore
+
+            if self.verbose:
+                print(f"  [MaestroSolver] ADAPT operators: {adapt_result['n_operators']}")
+                print(f"  [MaestroSolver] E(ADAPT) : {e_vqe:+.10f}")
+                print(f"  [MaestroSolver] E(total) : {e_tot:+.10f}")
+
+            return e_tot, self
 
         # --- Clear caches ---
         self._rdm1s_cache = None
