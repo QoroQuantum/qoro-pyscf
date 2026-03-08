@@ -111,10 +111,9 @@ def main():
 
     cas = mcscf.CASSCF(hf_obj, norb, nelec)
     cas.fcisolver = MaestroSolver(
-        ansatz="hardware_efficient",
-        ansatz_layers=2,
+        ansatz="uccsd",
         backend=backend,
-        maxiter=200,
+        maxiter=300,
         verbose=False,
     )
     cas.max_cycle_macro = 15
@@ -131,11 +130,21 @@ def main():
     print(f"  │")
     print(f"  ├─ Step 4: NEVPT2 (classical)")
     t0 = time.perf_counter()
-    nevpt2_corr = mrpt.NEVPT(cas).kernel()
-    nevpt2_e = casscf_e + nevpt2_corr
-    nevpt2_time = time.perf_counter() - t0
-    print(f"  │  ΔE(NEVPT2) = {nevpt2_corr:+.10f} Ha")
-    print(f"  │  E(CASSCF+NEVPT2) = {nevpt2_e:+.10f} Ha  ({nevpt2_time:.1f}s)")
+    # NEVPT2 requires a 3-RDM from the CI vector. VQE solvers produce
+    # parameterised circuits, not FCI-format CI vectors. When the full
+    # NEVPT2 is available (e.g., with a classical CASSCF), it runs;
+    # otherwise we skip it and note the limitation.
+    try:
+        nevpt2_corr = mrpt.NEVPT(cas).kernel()
+        nevpt2_e = casscf_e + nevpt2_corr
+        nevpt2_time = time.perf_counter() - t0
+        print(f"  │  ΔE(NEVPT2) = {nevpt2_corr:+.10f} Ha")
+        print(f"  │  E(CASSCF+NEVPT2) = {nevpt2_e:+.10f} Ha  ({nevpt2_time:.1f}s)")
+    except (AssertionError, RuntimeError, TypeError):
+        nevpt2_e = None
+        print(f"  │  ⚠ NEVPT2 requires a 3-RDM from the CI vector.")
+        print(f"  │  VQE solvers produce circuits, not CI vectors.")
+        print(f"  │  Skipping — use a classical FCI/DMRG solver for NEVPT2.")
 
     # ─────────────────────────────────────────────────────────────────────
     # Step 5: Properties
@@ -171,12 +180,14 @@ def main():
     print(f"     {'─' * 52}")
     print(f"     {'Method':<22s}  {'Energy (Ha)':>14s}  {'Δ FCI (mHa)':>12s}")
     print(f"     {'─' * 52}")
-    for label, e in [
+    entries = [
         ("HF", hf_obj.e_tot),
         ("CASSCF (Maestro)", casscf_e),
-        ("CASSCF + NEVPT2", nevpt2_e),
-        ("FCI (exact)", fci_e),
-    ]:
+    ]
+    if nevpt2_e is not None:
+        entries.append(("CASSCF + NEVPT2", nevpt2_e))
+    entries.append(("FCI (exact)", fci_e))
+    for label, e in entries:
         err = abs(e - fci_e) * 1000
         print(f"     {label:<22s}  {e:+14.8f}  {err:12.2f}")
     print(f"     {'─' * 52}")
