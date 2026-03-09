@@ -31,9 +31,11 @@ the ``fcisolver`` protocol: ``kernel``, ``make_rdm1``, ``make_rdm1s``,
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import numpy as np
@@ -145,6 +147,7 @@ class MaestroSolver:
     license_key: Optional[str] = None
     initial_point: Optional[np.ndarray] = None
     verbose: bool = True
+    callback: Optional[Callable[[int, float, np.ndarray], None]] = None
 
     # --- Custom ansatz (QCC / user-defined) ---
     custom_ansatz: Optional[
@@ -156,6 +159,12 @@ class MaestroSolver:
     adapt_threshold: float = 1e-3
     adapt_max_ops: int = 50
     adapt_pool: str = "sd"
+
+    # --- Tapering ---
+    taper: bool = False
+
+    # --- Excited states (VQD) ---
+    vqd_penalty: float = 5.0
 
     # --- PySCF interface attributes (set by CASCI/CASSCF) ---
     mol: object = field(default=None, repr=False)
@@ -174,6 +183,11 @@ class MaestroSolver:
     _nelec: tuple = field(default=(0, 0), init=False, repr=False)
     _rdm1s_cache: Optional[tuple] = field(default=None, init=False, repr=False)
     _rdm2s_cache: Optional[tuple] = field(default=None, init=False, repr=False)
+    _spin_penalty_shift: float = field(default=0.0, init=False, repr=False)
+    _spin_penalty_ss: float = field(default=0.0, init=False, repr=False)
+    _taper_result: object = field(default=None, init=False, repr=False)
+    _vqd_energies: list = field(default_factory=list, init=False, repr=False)
+    _vqd_circuits: list = field(default_factory=list, init=False, repr=False)
 
     def kernel(
         self,
@@ -255,6 +269,20 @@ class MaestroSolver:
 
         # --- Build qubit Hamiltonian from PySCF integrals ---
         qubit_op, _ = integrals_to_qubit_hamiltonian(h1, h2, norb)
+
+        # --- Optional Z₂ tapering ---
+        if self.taper:
+            from qoro_maestro_pyscf.tapering import taper_hamiltonian
+            self._taper_result = taper_hamiltonian(
+                qubit_op, n_qubits, self._nelec
+            )
+            qubit_op = self._taper_result.tapered_op
+            n_qubits = self._taper_result.tapered_n_qubits
+            self._n_qubits = n_qubits
+            if self.verbose:
+                print(f"  [MaestroSolver] Tapered  : "
+                      f"{self._taper_result.original_n_qubits} → {n_qubits} qubits")
+
         identity_offset, pauli_labels, pauli_coeffs = qubit_op_to_pauli_list(
             qubit_op, n_qubits
         )
@@ -337,10 +365,28 @@ class MaestroSolver:
             energy = compute_energy(
                 qc, identity_offset, pauli_labels, pauli_coeffs, self._config
             )
+
+            # --- Spin penalty (if fix_spin_ was called) ---
+            if self._spin_penalty_shift > 0:
+                from qoro_maestro_pyscf.rdm import compute_1rdm_spatial
+                rdm1_a, rdm1_b = compute_1rdm_spatial(
+                    qc, n_qubits, self._config
+                )
+                n_a = np.trace(rdm1_a)
+                n_b = np.trace(rdm1_b)
+                sz = (n_a - n_b) / 2.0
+                overlap = np.trace(rdm1_a @ rdm1_b)
+                ss = sz * (sz + 1.0) + n_b - overlap
+                energy += self._spin_penalty_shift * (ss - self._spin_penalty_ss) ** 2
+
             self.energy_history.append(energy)
             iteration[0] += 1
             if self.verbose and (iteration[0] % 20 == 0 or iteration[0] == 1):
                 print(f"    iter {iteration[0]:4d}  |  E = {energy:+.10f}")
+
+            if self.callback is not None:
+                self.callback(iteration[0], energy, params)
+
             return energy
 
         # --- Initial point ---
@@ -407,9 +453,159 @@ class MaestroSolver:
             print(f"  [MaestroSolver] E(total)  : {e_tot:+.10f}")
             print(f"  [MaestroSolver] Time      : {self.vqe_time:.2f}s")
 
+        # --- Multi-root VQD (nroots > 1) ---
+        if self.nroots > 1:
+            return self._run_vqd(
+                e_tot, n_qubits, identity_offset, pauli_labels,
+                pauli_coeffs, n_params, ecore,
+            )
+
         # Return (energy, self) — self acts as the fake CI vector,
         # matching the qiskit-nature-pyscf convention.
         return e_tot, self
+
+    def _run_vqd(
+        self,
+        ground_energy: float,
+        n_qubits: int,
+        identity_offset: float,
+        pauli_labels: list,
+        pauli_coeffs: np.ndarray,
+        n_params: int,
+        ecore: float,
+    ):
+        """
+        Run VQD (Variational Quantum Deflation) for excited states.
+
+        After the ground state is computed in ``kernel()``, this method
+        computes ``nroots - 1`` additional excited states sequentially.
+        Each state k is found by minimising:
+
+            E_k(θ) = ⟨ψ(θ)|H|ψ(θ)⟩ + β Σ_{j<k} |⟨ψ_j|ψ(θ)⟩|²
+
+        where β is :attr:`vqd_penalty` and ⟨ψ_j|ψ(θ)⟩ is the overlap
+        with previously found states, computed via statevector inner product.
+
+        Reference: Higgott, Wang & Brierley, Quantum 3, 156 (2019).
+
+        Returns
+        -------
+        energies : np.ndarray, shape (nroots,)
+            Total energies for each root.
+        ci_vecs : list of MaestroSolver
+            ``[self] * nroots`` for PySCF compatibility.
+        """
+        import maestro
+        from qoro_maestro_pyscf.expectation import compute_energy
+
+        # Store ground state
+        self._vqd_energies = [ground_energy]
+        self._vqd_circuits = [self._optimal_circuit]
+
+        sv_kwargs = {
+            "simulator_type": self._config.simulator_type,
+            "simulation_type": self._config.simulation_type,
+        }
+        if self._config.mps_bond_dim is not None:
+            sv_kwargs["max_bond_dimension"] = self._config.mps_bond_dim
+
+        # Get ground-state statevector for overlap
+        previous_svs = [
+            np.asarray(
+                maestro.get_state_vector(self._optimal_circuit, **sv_kwargs),
+                dtype=np.complex128,
+            )
+        ]
+
+        if self.verbose:
+            print(f"\n  [VQD] Computing {self.nroots - 1} excited states "
+                  f"(β = {self.vqd_penalty})...")
+
+        for root in range(1, self.nroots):
+            if self.verbose:
+                print(f"\n  [VQD] ── Root {root} ─────────────────────────")
+
+            iteration_k = [0]
+
+            def _build_circuit_k(params):
+                """Build circuit for the current root."""
+                if self.ansatz == "custom":
+                    if callable(self.custom_ansatz):
+                        return self.custom_ansatz(params, n_qubits, self._nelec)
+                    return self.custom_ansatz
+                elif self.ansatz == "uccsd":
+                    return uccsd_ansatz(params, n_qubits, self._nelec)
+                elif self.ansatz == "upccd":
+                    return upccd_ansatz(params, n_qubits, self._nelec)
+                else:
+                    return hardware_efficient_ansatz(
+                        params, n_qubits, self.ansatz_layers,
+                        include_hf=True, nelec=self._nelec,
+                    )
+
+            def cost_vqd(params):
+                qc = _build_circuit_k(params)
+
+                # Base energy
+                energy = compute_energy(
+                    qc, identity_offset, pauli_labels, pauli_coeffs,
+                    self._config,
+                )
+
+                # Overlap penalty with all previous states
+                sv_k = np.asarray(
+                    maestro.get_state_vector(qc, **sv_kwargs),
+                    dtype=np.complex128,
+                )
+                for sv_prev in previous_svs:
+                    overlap_sq = abs(np.vdot(sv_prev, sv_k)) ** 2
+                    energy += self.vqd_penalty * overlap_sq
+
+                iteration_k[0] += 1
+                if self.verbose and (iteration_k[0] % 20 == 0 or iteration_k[0] == 1):
+                    print(f"    iter {iteration_k[0]:4d}  |  E = {energy:+.10f}")
+
+                if self.callback is not None:
+                    self.callback(iteration_k[0], energy, params)
+
+                return energy
+
+            # Random initial point (different seed per root)
+            rng = np.random.default_rng(42 + root)
+            x0_k = rng.uniform(-np.pi / 4, np.pi / 4, size=n_params)
+
+            opts: dict = {"maxiter": self.maxiter}
+            if self.optimizer.upper() == "COBYLA":
+                opts["rhobeg"] = 0.3
+
+            opt_k = minimize(cost_vqd, x0_k, method=self.optimizer, options=opts)
+
+            # Build final circuit for this root
+            qc_k = _build_circuit_k(opt_k.x)
+            e_k = compute_energy(
+                qc_k, identity_offset, pauli_labels, pauli_coeffs, self._config
+            ) + ecore
+
+            self._vqd_energies.append(e_k)
+            self._vqd_circuits.append(qc_k)
+
+            # Store statevector for next root's penalty
+            previous_svs.append(
+                np.asarray(
+                    maestro.get_state_vector(qc_k, **sv_kwargs),
+                    dtype=np.complex128,
+                )
+            )
+
+            if self.verbose:
+                print(f"  [VQD] Root {root}: E = {e_k:+.10f} Ha")
+
+        energies = np.array(self._vqd_energies)
+
+        if self.verbose:
+            print(f"\n  [VQD] All roots: {energies}")
+
+        return energies, [self] * self.nroots
 
     # CASSCF compatibility
     approx_kernel = kernel
@@ -700,7 +896,8 @@ class MaestroSolver:
         Apply a spin-penalty to the VQE cost function.
 
         Modifies the solver in-place so that subsequent ``kernel`` calls
-        penalise states with ⟨S²⟩ away from the target value.
+        penalise states with ⟨S²⟩ away from the target value.  The penalty
+        adds ``shift * (⟨S²⟩ - target)²`` to the energy at each iteration.
 
         Parameters
         ----------
@@ -717,5 +914,116 @@ class MaestroSolver:
         self._spin_penalty_shift = shift
         self._spin_penalty_ss = ss if ss is not None else 0.0
         return self
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Serialisation — save / load
+    # ──────────────────────────────────────────────────────────────────────
+
+    def save(self, path: str | Path) -> None:
+        """
+        Save solver state to disk for checkpointing or reproducibility.
+
+        Stores configuration, optimal parameters, and energy history as a
+        ``.npz`` + ``.json`` pair.  The circuit itself is **not** saved
+        (it is rebuilt from parameters on ``load``).
+
+        Parameters
+        ----------
+        path : str or Path
+            Output path **without** extension.  Two files are created:
+            ``<path>.json`` (config) and ``<path>.npz`` (arrays).
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        config = {
+            "ansatz": self.ansatz,
+            "ansatz_layers": self.ansatz_layers,
+            "optimizer": self.optimizer,
+            "maxiter": self.maxiter,
+            "backend": self.backend,
+            "simulation": self.simulation,
+            "mps_bond_dim": self.mps_bond_dim,
+            "verbose": self.verbose,
+            "converged": self.converged,
+            "vqe_time": self.vqe_time,
+            "n_qubits": self._n_qubits,
+            "nelec": list(self._nelec),
+            "adapt_threshold": self.adapt_threshold,
+            "adapt_max_ops": self.adapt_max_ops,
+            "adapt_pool": self.adapt_pool,
+            "_spin_penalty_shift": self._spin_penalty_shift,
+            "_spin_penalty_ss": self._spin_penalty_ss,
+        }
+
+        with open(f"{path}.json", "w") as f:
+            json.dump(config, f, indent=2)
+
+        arrays: dict = {}
+        if self.optimal_params is not None:
+            arrays["optimal_params"] = self.optimal_params
+        if self.energy_history:
+            arrays["energy_history"] = np.array(self.energy_history)
+        if self.initial_point is not None:
+            arrays["initial_point"] = np.asarray(self.initial_point)
+
+        np.savez(f"{path}.npz", **arrays)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "MaestroSolver":
+        """
+        Restore a solver from a checkpoint saved by :meth:`save`.
+
+        The returned solver has its parameters and energy history
+        restored.  To reuse the optimised state without re-running VQE,
+        pass the restored solver as the CASCI ``fcisolver`` and use
+        ``maxiter=0``.
+
+        Parameters
+        ----------
+        path : str or Path
+            Base path (without extension) used during :meth:`save`.
+
+        Returns
+        -------
+        MaestroSolver
+            A new solver instance with restored state.
+        """
+        path = Path(path)
+
+        with open(f"{path}.json", "r") as f:
+            config = json.load(f)
+
+        data = np.load(f"{path}.npz", allow_pickle=False)
+
+        solver = cls(
+            ansatz=config["ansatz"],
+            ansatz_layers=config.get("ansatz_layers", 2),
+            optimizer=config.get("optimizer", "COBYLA"),
+            maxiter=config.get("maxiter", 200),
+            backend=config.get("backend", "gpu"),
+            simulation=config.get("simulation", "statevector"),
+            mps_bond_dim=config.get("mps_bond_dim", 64),
+            verbose=config.get("verbose", True),
+            adapt_threshold=config.get("adapt_threshold", 1e-3),
+            adapt_max_ops=config.get("adapt_max_ops", 50),
+            adapt_pool=config.get("adapt_pool", "sd"),
+        )
+
+        # Restore internal state
+        solver.converged = config.get("converged", False)
+        solver.vqe_time = config.get("vqe_time", 0.0)
+        solver._n_qubits = config.get("n_qubits", 0)
+        solver._nelec = tuple(config.get("nelec", (0, 0)))
+        solver._spin_penalty_shift = config.get("_spin_penalty_shift", 0.0)
+        solver._spin_penalty_ss = config.get("_spin_penalty_ss", 0.0)
+
+        if "optimal_params" in data:
+            solver.optimal_params = data["optimal_params"]
+            solver.initial_point = data["optimal_params"].copy()
+        if "energy_history" in data:
+            solver.energy_history = data["energy_history"].tolist()
+
+        return solver
 
 

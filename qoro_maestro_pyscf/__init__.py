@@ -49,6 +49,11 @@ from qoro_maestro_pyscf.properties import (
     compute_dipole_moment,
     compute_natural_orbitals,
 )
+from qoro_maestro_pyscf.active_space import (
+    suggest_active_space,
+    suggest_active_space_from_mp2,
+)
+from qoro_maestro_pyscf.tapering import taper_hamiltonian, TaperingResult
 
 __all__ = [
     "MaestroSolver",
@@ -59,5 +64,9 @@ __all__ = [
     "compute_state_fidelity",
     "compute_dipole_moment",
     "compute_natural_orbitals",
+    "suggest_active_space",
+    "suggest_active_space_from_mp2",
+    "taper_hamiltonian",
+    "TaperingResult",
 ]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

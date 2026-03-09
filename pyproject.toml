@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qoro-maestro-pyscf"
-version = "0.4.0"
+version = "0.5.0"
 description = "PySCF integration plugin for the Maestro GPU quantum simulator by Qoro Quantum"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -64,7 +64,7 @@ testpaths = ["tests"]
 
 [tool.poetry]
 name = "qoro-maestro-pyscf"
-version = "0.4.0"
+version = "0.5.0"
 description = "PySCF integration plugin for the Maestro quantum simulator"
 authors = ["Qoro Quantum Ltd. <team@qoroquantum.de>"]
 license = "Apache-2.0"
