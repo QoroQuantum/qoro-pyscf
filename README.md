@@ -58,7 +58,11 @@ Swap in your molecule, basis set, and active space:
 Not sure which orbitals to include? Let PySCF + MP2 natural orbitals decide:
 
 ```python
-from qoro_maestro_pyscf import suggest_active_space_from_mp2
+from pyscf import gto, scf, mcscf
+from qoro_maestro_pyscf import MaestroSolver, suggest_active_space_from_mp2
+
+mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g", verbose=0)
+hf = scf.RHF(mol).run()
 
 norb, nelec, mo_coeff = suggest_active_space_from_mp2(hf)
 cas = mcscf.CASCI(hf, norb, nelec)
