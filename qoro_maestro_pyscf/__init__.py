@@ -43,6 +43,7 @@ Quick Start
 """
 
 from qoro_maestro_pyscf.maestro_solver import MaestroSolver
+from qoro_maestro_pyscf.qsci_solver import QSCISolver
 from qoro_maestro_pyscf.vqd_solver import VQDSolver
 from qoro_maestro_pyscf.backends import BackendConfig, configure_backend, set_license_key
 from qoro_maestro_pyscf.expectation import (
@@ -63,6 +64,7 @@ from qoro_maestro_pyscf.tapering import taper_hamiltonian, TaperingResult
 
 __all__ = [
     "MaestroSolver",
+    "QSCISolver",
     "VQDSolver",
     "BackendConfig",
     "configure_backend",
