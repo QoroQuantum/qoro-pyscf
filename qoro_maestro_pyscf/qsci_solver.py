@@ -39,7 +39,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -461,13 +461,11 @@ class QSCISolver:
 
         Uses PySCF's ``selected_ci.make_rdm1`` — no quantum resources needed.
         """
-        from pyscf.fci.selected_ci import make_rdm1
+        from pyscf.fci.selected_ci import make_rdm1, _as_SCIvector
 
         solver = fake_ci_vec if isinstance(fake_ci_vec, QSCISolver) else self
-        nelec_resolved = solver._nelec
-        from pyscf.fci.selected_ci import _as_SCIvector
         sci_vec = _as_SCIvector(solver._ci_vector, solver._ci_strs)
-        return make_rdm1(sci_vec, solver._norb, nelec_resolved)
+        return make_rdm1(sci_vec, solver._norb, solver._nelec)
 
     def make_rdm1s(
         self,
