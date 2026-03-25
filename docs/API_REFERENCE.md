@@ -56,6 +56,52 @@ cas.run()
 
 ---
 
+## `QSCISolver`
+
+Quantum-Selected Configuration Interaction — wraps a `MaestroSolver` for state preparation, then classically diagonalizes in the quantum-selected subspace. Reference: [arXiv:2302.11320](https://arxiv.org/abs/2302.11320).
+
+```python
+from qoro_maestro_pyscf import QSCISolver, MaestroSolver
+
+solver = QSCISolver(
+    inner_solver=MaestroSolver(ansatz="uccsd"),  # VQE state preparation
+    n_samples=500,              # max determinants in CI subspace
+    probability_threshold=1e-8, # min probability for configuration selection
+    verbose=True,               # print QSCI progress
+)
+```
+
+### Usage with PySCF
+
+```python
+from pyscf import gto, scf, mcscf
+from qoro_maestro_pyscf import MaestroSolver, QSCISolver
+
+mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g", verbose=0)
+hf = scf.RHF(mol).run()
+
+cas = mcscf.CASCI(hf, 3, 2)
+inner = MaestroSolver(ansatz="uccsd", maxiter=100)
+cas.fcisolver = QSCISolver(inner_solver=inner)
+e_qsci = cas.kernel()[0]
+```
+
+### Attributes (after `kernel` runs)
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `converged` | `bool` | Whether QSCI completed successfully |
+| `vqe_energy` | `float` | Inner VQE energy (before QSCI improvement) |
+| `qsci_energy` | `float` | Final QSCI energy |
+| `qsci_time` | `float` | Wall-clock time for full QSCI pipeline (seconds) |
+| `n_determinants` | `int` | Size of the CI subspace |
+
+### RDM Interface
+
+`QSCISolver` implements the full PySCF `fcisolver` RDM protocol: `make_rdm1`, `make_rdm1s`, `make_rdm12`, `make_rdm12s`, `spin_square`. All RDMs are computed classically from the selected-CI eigenvector.
+
+---
+
 ## `configure_backend`
 
 Create a backend configuration manually (used internally by `MaestroSolver`, but available for advanced use).
