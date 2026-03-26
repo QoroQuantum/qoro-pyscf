@@ -15,7 +15,7 @@
 """
 VQDSolver — Excited-state solver using Variational Quantum Deflation (VQD).
 
-Wraps :class:`MaestroSolver` to compute multiple excited states sequentially.
+Wraps :class:`QoroSolver` to compute multiple excited states sequentially.
 Each excited state *k* is found by minimising a modified cost function that
 penalises overlap with all previously found states:
 
@@ -28,14 +28,14 @@ Example
 ::
 
     from pyscf import gto, scf, mcscf
-    from qoro_maestro_pyscf import MaestroSolver, VQDSolver
+    from qoro_pyscf import QoroSolver, VQDSolver
 
     mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
     hf = scf.RHF(mol).run()
 
     cas = mcscf.CASCI(hf, 2, 2)
     vqd = VQDSolver(
-        solver=MaestroSolver(ansatz="uccsd"),
+        solver=QoroSolver(ansatz="uccsd"),
         num_states=3,
         penalty_weights=5.0,
     )
@@ -59,13 +59,13 @@ from scipy.optimize import minimize
 if TYPE_CHECKING:
     from maestro.circuits import QuantumCircuit
 
-from qoro_maestro_pyscf.maestro_solver import MaestroSolver
-from qoro_maestro_pyscf.backends import BackendConfig, configure_backend
-from qoro_maestro_pyscf.hamiltonian import (
+from qoro_pyscf.qoro_solver import QoroSolver
+from qoro_pyscf.backends import BackendConfig, configure_backend
+from qoro_pyscf.hamiltonian import (
     integrals_to_qubit_hamiltonian,
     qubit_op_to_pauli_list,
 )
-from qoro_maestro_pyscf.ansatze import (
+from qoro_pyscf.ansatze import (
     hardware_efficient_ansatz,
     hardware_efficient_param_count,
     uccsd_ansatz,
@@ -73,8 +73,8 @@ from qoro_maestro_pyscf.ansatze import (
     upccd_ansatz,
     upccd_param_count,
 )
-from qoro_maestro_pyscf.expectation import compute_energy
-from qoro_maestro_pyscf.rdm import (
+from qoro_pyscf.expectation import compute_energy
+from qoro_pyscf.rdm import (
     compute_1rdm_spatial,
     compute_2rdm_spatial,
     trace_spin_rdm1,
@@ -100,7 +100,7 @@ class VQDSolver:
     """
     Excited-state solver using Variational Quantum Deflation (VQD).
 
-    Wraps a :class:`MaestroSolver` to compute ground and excited states
+    Wraps a :class:`QoroSolver` to compute ground and excited states
     sequentially.  For each excited state *k*, the cost function is:
 
         C(θ) = ⟨ψ_k(θ)|H|ψ_k(θ)⟩ + Σ_{i<k} β_i F(ψ_i, ψ_k(θ))
@@ -112,7 +112,7 @@ class VQDSolver:
 
     Parameters
     ----------
-    solver : MaestroSolver
+    solver : QoroSolver
         The inner ground-state VQE solver.  All ansatz, optimizer,
         backend, and simulation settings are inherited from this solver.
     num_states : int
@@ -141,12 +141,12 @@ class VQDSolver:
     H₂ ground + first excited state:
 
     >>> from pyscf import gto, scf, mcscf
-    >>> from qoro_maestro_pyscf import MaestroSolver, VQDSolver
+    >>> from qoro_pyscf import QoroSolver, VQDSolver
     >>> mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
     >>> hf = scf.RHF(mol).run()
     >>> cas = mcscf.CASCI(hf, 2, 2)
     >>> cas.fcisolver = VQDSolver(
-    ...     solver=MaestroSolver(ansatz="uccsd"),
+    ...     solver=QoroSolver(ansatz="uccsd"),
     ...     num_states=2,
     ...     penalty_weights=10.0,
     ... )
@@ -154,7 +154,7 @@ class VQDSolver:
     """
 
     # --- User-configurable ---
-    solver: MaestroSolver = field(default_factory=MaestroSolver)
+    solver: QoroSolver = field(default_factory=QoroSolver)
     num_states: int = 2
     penalty_weights: Union[float, list[float]] = 5.0
     callback: Optional[Callable[[int, int, float, np.ndarray], None]] = None
@@ -215,17 +215,17 @@ class VQDSolver:
 
     def _get_probabilities(self, circuit: "QuantumCircuit") -> np.ndarray:
         """Extract the probability distribution from a circuit (for RDM/debug use)."""
-        from qoro_maestro_pyscf.expectation import get_state_probabilities
+        from qoro_pyscf.expectation import get_state_probabilities
         return get_state_probabilities(circuit, self._config)
 
     def _compute_overlap(self, circuit_a: "QuantumCircuit", circuit_b: "QuantumCircuit") -> float:
-        """Compute |⟨ψ_a|ψ_b⟩|² using the best available Maestro API.
+        """Compute |⟨ψ_a|ψ_b⟩|² using the best available Qoro API.
 
         Delegates to :func:`compute_overlap`, which uses
         ``maestro.inner_product`` when available and falls back to
         the Bhattacharyya coefficient otherwise.
         """
-        from qoro_maestro_pyscf.expectation import compute_overlap
+        from qoro_pyscf.expectation import compute_overlap
         return compute_overlap(circuit_a, circuit_b, self._config)
 
     def _param_count(self, n_qubits: int, nelec: tuple[int, int]) -> int:
@@ -342,7 +342,7 @@ class VQDSolver:
                     "`custom_ansatz_n_params` must be set."
                 )
 
-        # --- Configure Maestro backend ---
+        # --- Configure Qoro backend ---
         self._config = configure_backend(
             use_gpu=(s.backend == "gpu"),
             simulation=s.simulation,
@@ -356,7 +356,7 @@ class VQDSolver:
                 "VQD Solver: Backend=%s, Qubits=%d, Ansatz=%s, States=%d",
                 self._config.label, n_qubits, s.ansatz, total_states,
             )
-            print(f"\nVQD Solver (Maestro)")
+            print(f"\nVQD Solver (Qoro)")
             print(f"  Active space : ({sum(self._nelec)}e, {norb}o) → {n_qubits} qubits")
             print(f"  Ansatz       : {s.ansatz}")
             print(f"  Backend      : {self._config.label}")
@@ -367,7 +367,7 @@ class VQDSolver:
 
         # --- Optional Z₂ tapering ---
         if s.taper:
-            from qoro_maestro_pyscf.tapering import taper_hamiltonian
+            from qoro_pyscf.tapering import taper_hamiltonian
             taper_result = taper_hamiltonian(qubit_op, n_qubits, self._nelec)
             qubit_op = taper_result.tapered_op
             n_qubits = taper_result.tapered_n_qubits

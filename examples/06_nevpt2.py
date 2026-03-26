@@ -29,7 +29,7 @@ cusp). NEVPT2 (N-Electron Valence Perturbation Theory, 2nd order) adds
 the dynamic part perturbatively — it's cheap and size-consistent.
 
 The beauty is that NEVPT2 only needs the RDMs from the CASSCF. Since our
-MaestroSolver already computes these, NEVPT2 comes for free — PySCF does
+QoroSolver already computes these, NEVPT2 comes for free — PySCF does
 all the work.
 
 What this example shows
@@ -50,7 +50,7 @@ import argparse
 import time
 
 from pyscf import gto, scf, mcscf, mrpt
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 
 def main():
@@ -87,10 +87,10 @@ def main():
     cas_fci.verbose = 0
     fci_e = cas_fci.kernel()[0]
 
-    # --- Step 1: CASSCF with MaestroSolver ---
-    print(f"\n  Step 1: CASSCF on Maestro ({backend.upper()})...")
+    # --- Step 1: CASSCF with QoroSolver ---
+    print(f"\n  Step 1: CASSCF on Qoro ({backend.upper()})...")
     cas = mcscf.CASSCF(hf_obj, norb, nelec)
-    cas.fcisolver = MaestroSolver(
+    cas.fcisolver = QoroSolver(
         ansatz="hardware_efficient",
         ansatz_layers=2,
         backend=backend,
@@ -119,12 +119,12 @@ def main():
     print(f"  {'─' * 50}")
     for label, energy in [
         ("HF", hf_obj.e_tot),
-        ("CASSCF (Maestro)", casscf_e),
+        ("CASSCF (Qoro)", casscf_e),
         ("CASSCF + NEVPT2", nevpt2_e),
         ("FCI (exact)", fci_e),
     ]:
         err = abs(energy - fci_e) * 1000
-        mark = "  ◀ GPU" if "Maestro" in label else ""
+        mark = "  ◀ GPU" if "Qoro" in label else ""
         print(f"  {label:<20s} {energy:+.10f}  {err:8.2f} mHa{mark}")
 
     print(f"\n  Each layer adds accuracy:")

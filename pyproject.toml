@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qoro-maestro-pyscf"
+name = "qoro-pyscf"
 version = "0.6.1"
-description = "PySCF VQE plugin for the Maestro quantum simulator — works on CPU, upgrade to GPU for speed"
+description = "PySCF VQE plugin powered by Qoro Quantum — works on CPU, upgrade to GPU for speed"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ authors = [
     {name = "Qoro Quantum Ltd.", email = "team@qoroquantum.de"},
 ]
 keywords = [
-    "quantum", "chemistry", "VQE", "PySCF", "Maestro", "GPU",
+    "quantum", "chemistry", "VQE", "PySCF", "Qoro", "GPU",
     "CASCI", "CASSCF", "quantum computing", "simulation",
 ]
 classifiers = [
@@ -49,11 +49,11 @@ notebook = [
 [project.urls]
 Homepage = "https://qoroquantum.de"
 Documentation = "https://qoroquantum.github.io/maestro/d7/d01/python_guide.html"
-Repository = "https://github.com/QoroQuantum/maestro-pyscf"
-Issues = "https://github.com/QoroQuantum/maestro-pyscf/issues"
+Repository = "https://github.com/QoroQuantum/qoro-pyscf"
+Issues = "https://github.com/QoroQuantum/qoro-pyscf/issues"
 
 [tool.setuptools.packages.find]
-include = ["qoro_maestro_pyscf*"]
+include = ["qoro_pyscf*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -63,13 +63,13 @@ testpaths = ["tests"]
 # This mirrors the PEP 621 [project] metadata above for Poetry compatibility.
 
 [tool.poetry]
-name = "qoro-maestro-pyscf"
+name = "qoro-pyscf"
 version = "0.6.0"
-description = "PySCF VQE plugin for the Maestro quantum simulator — CPU out of the box, GPU for speed"
+description = "PySCF VQE plugin powered by Qoro Quantum — CPU out of the box, GPU for speed"
 authors = ["Qoro Quantum Ltd. <team@qoroquantum.de>"]
 license = "Apache-2.0"
 readme = "README.md"
-packages = [{include = "qoro_maestro_pyscf"}]
+packages = [{include = "qoro_pyscf"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"

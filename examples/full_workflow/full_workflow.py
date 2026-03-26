@@ -17,7 +17,7 @@
 Example 9 — Full Workflow: BeH₂ Insertion Reaction
 =====================================================
 
-A complete computational chemistry workflow using qoro-maestro-pyscf:
+A complete computational chemistry workflow using qoro-pyscf:
 molecule → HF → CASCI + VQE (GPU) → NEVPT2 → properties.
 
 This models the BeH₂ molecule, which has interesting multi-reference
@@ -29,11 +29,11 @@ This is what a real computational chemistry study looks like:
 
 1. Define the molecule and basis set
 2. Run Hartree-Fock to get starting orbitals
-3. CASCI with MaestroSolver to capture static correlation
+3. CASCI with QoroSolver to capture static correlation
 4. NEVPT2 to add dynamic correlation
 5. Extract properties (dipole, natural occupations)
 
-It demonstrates that qoro-maestro-pyscf isn't just a VQE toy — it's a
+It demonstrates that qoro-pyscf isn't just a VQE toy — it's a
 full quantum embedding tool that fits into standard chemistry pipelines.
 
 Usage
@@ -48,8 +48,8 @@ import time
 import numpy as np
 from pyscf import gto, scf, mcscf, mrpt
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.properties import (
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.properties import (
     compute_dipole_moment,
     compute_natural_orbitals,
 )
@@ -97,17 +97,17 @@ def main():
     print(f"  │  E(HF) = {hf_obj.e_tot:+.10f} Ha")
 
     # ─────────────────────────────────────────────────────────────────────
-    # Step 3: CASCI with VQE on Maestro
+    # Step 3: CASCI with VQE on Qoro
     # ─────────────────────────────────────────────────────────────────────
     norb = 3   # Be 2s, 2pz + H 1s orbitals
     nelec = 2
 
     print(f"  │")
-    print(f"  ├─ Step 3: CASCI + VQE on Maestro ({backend.upper()})")
+    print(f"  ├─ Step 3: CASCI + VQE on Qoro ({backend.upper()})")
     print(f"  │  Active space: ({nelec}e, {norb}o) → {2*norb} qubits")
 
     cas = mcscf.CASCI(hf_obj, norb, nelec)
-    cas.fcisolver = MaestroSolver(
+    cas.fcisolver = QoroSolver(
         ansatz="uccsd",
         backend=backend,
         maxiter=300,
@@ -177,7 +177,7 @@ def main():
     print(f"     {'─' * 52}")
     entries = [
         ("HF", hf_obj.e_tot),
-        ("CASCI+VQE (Maestro)", casci_e),
+        ("CASCI+VQE (Qoro)", casci_e),
     ]
     if nevpt2_e is not None:
         entries.append(("CASCI + NEVPT2", nevpt2_e))

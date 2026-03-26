@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Ansatz builders for VQE using native Maestro QuantumCircuit objects.
+Ansatz builders for VQE using native Qoro QuantumCircuit objects.
 
 All builders return ``maestro.circuits.QuantumCircuit`` instances — no QASM
 string intermediary.
@@ -43,7 +43,7 @@ def _QC() -> QuantumCircuit:
 
 def hartree_fock_circuit(n_qubits: int, nelec: int | tuple[int, int]) -> QuantumCircuit:
     """
-    Build the Hartree-Fock initial state as a Maestro QuantumCircuit.
+    Build the Hartree-Fock initial state as a Qoro QuantumCircuit.
 
     In the Jordan-Wigner mapping, the HF state corresponds to X gates on the
     spin-orbitals that are occupied:
@@ -93,7 +93,7 @@ def hardware_efficient_ansatz(
     nelec: int | tuple[int, int] | None = None,
 ) -> QuantumCircuit:
     """
-    Build a hardware-efficient ansatz as a native Maestro QuantumCircuit.
+    Build a hardware-efficient ansatz as a native Qoro QuantumCircuit.
 
     Structure per layer:
         Ry(θ) + Rz(θ) on every qubit, followed by a linear CNOT ladder.
@@ -189,7 +189,7 @@ def uccsd_ansatz(
     nelec: int | tuple[int, int],
 ) -> QuantumCircuit:
     """
-    Build a first-order Trotterised UCCSD ansatz as a Maestro QuantumCircuit.
+    Build a first-order Trotterised UCCSD ansatz as a Qoro QuantumCircuit.
 
     Prepends the Hartree-Fock state, then applies parameterised single and
     double excitation circuits mapped through Jordan-Wigner.

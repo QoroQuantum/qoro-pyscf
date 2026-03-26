@@ -16,7 +16,7 @@
 Molecular property computation from VQE results.
 
 Computes dipole moments, natural orbital occupations, and other one-electron
-properties from the RDMs produced by MaestroSolver.
+properties from the RDMs produced by QoroSolver.
 """
 
 from __future__ import annotations

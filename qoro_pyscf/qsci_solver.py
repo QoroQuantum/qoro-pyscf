@@ -16,15 +16,15 @@
 QSCISolver — PySCF FCI-solver drop-in backed by Quantum-Selected CI.
 
 Implements the QSCI algorithm (arXiv:2302.11320): a hybrid quantum-classical
-method that uses a quantum computer (via VQE on Maestro) to *select* important
+method that uses a quantum computer (via VQE on Qoro) to *select* important
 electron configurations, then classically diagonalizes the Hamiltonian in the
 subspace spanned by those configurations.
 
 Usage::
 
-    from qoro_maestro_pyscf import MaestroSolver, QSCISolver
+    from qoro_pyscf import QoroSolver, QSCISolver
 
-    inner = MaestroSolver(ansatz="uccsd", backend="gpu")
+    inner = QoroSolver(ansatz="uccsd", backend="gpu")
     cas.fcisolver = QSCISolver(inner_solver=inner)
     cas.run()
 
@@ -42,7 +42,7 @@ from typing import Union
 
 import numpy as np
 
-from qoro_maestro_pyscf.maestro_solver import MaestroSolver
+from qoro_pyscf.qoro_solver import QoroSolver
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ def _compute_probabilities_via_z_projectors(
     and ⟨Z_z⟩ is the expectation value of the corresponding Z-string operator.
 
     All Z-strings are batched into a single ``circuit.estimate()`` call,
-    so Maestro evaluates them in one statevector/MPS pass.
+    so Qoro evaluates them in one statevector/MPS pass.
 
     Parameters
     ----------
@@ -74,14 +74,14 @@ def _compute_probabilities_via_z_projectors(
     n_qubits : int
         Number of qubits (spin-orbitals).
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
     probabilities : ndarray, shape (2**n_qubits,)
         Probability of each computational basis state.
     """
-    from qoro_maestro_pyscf.expectation import evaluate_expectation
+    from qoro_pyscf.expectation import evaluate_expectation
 
     n_states = 2 ** n_qubits
 
@@ -141,7 +141,7 @@ def _probabilities_to_determinants(
     Convert a probability vector to selected α/β determinant strings.
 
     Each index *k* in the probability vector corresponds to a computational
-    basis state |k⟩.  In the Jordan-Wigner mapping used by maestro-pyscf,
+    basis state |k⟩.  In the Jordan-Wigner mapping used by qoro-pyscf,
     even-indexed qubits are α spin-orbitals and odd-indexed are β.
 
     This function:
@@ -246,7 +246,7 @@ class QSCISolver:
     """
     PySCF FCI-solver that runs QSCI (Quantum-Selected Configuration Interaction).
 
-    Uses an inner ``MaestroSolver`` to prepare a VQE state, samples it in the
+    Uses an inner ``QoroSolver`` to prepare a VQE state, samples it in the
     computational basis, selects the most important electron configurations,
     and classically diagonalizes the Hamiltonian in that subspace using
     PySCF's selected CI machinery.
@@ -257,7 +257,7 @@ class QSCISolver:
 
     Parameters
     ----------
-    inner_solver : MaestroSolver
+    inner_solver : QoroSolver
         VQE solver for state preparation. Any ansatz is supported.
     n_samples : int
         Maximum number of determinants to include in the CI subspace.
@@ -274,22 +274,22 @@ class QSCISolver:
     CASCI with QSCI (CPU, works out of the box):
 
     >>> from pyscf import gto, scf, mcscf
-    >>> from qoro_maestro_pyscf import MaestroSolver, QSCISolver
+    >>> from qoro_pyscf import QoroSolver, QSCISolver
     >>> mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
     >>> hf = scf.RHF(mol).run()
     >>> cas = mcscf.CASCI(hf, 2, 2)
-    >>> inner = MaestroSolver(ansatz="uccsd")
+    >>> inner = QoroSolver(ansatz="uccsd")
     >>> cas.fcisolver = QSCISolver(inner_solver=inner)
     >>> cas.run()
 
     GPU-accelerated QSCI with larger subspace:
 
-    >>> inner = MaestroSolver(ansatz="uccsd", backend="gpu")
+    >>> inner = QoroSolver(ansatz="uccsd", backend="gpu")
     >>> cas.fcisolver = QSCISolver(inner_solver=inner, n_samples=2000)
     """
 
     # --- User-configurable ---
-    inner_solver: MaestroSolver = field(default_factory=MaestroSolver)
+    inner_solver: QoroSolver = field(default_factory=QoroSolver)
     n_samples: int = 500
     probability_threshold: float = 1e-8
     verbose: bool = True
@@ -359,7 +359,7 @@ class QSCISolver:
         self._n_qubits = 2 * norb
 
         if self.verbose:
-            print(f"\n╔══ QSCI Solver (Maestro) ══════════════════════════")
+            print(f"\n╔══ QSCI Solver (Qoro) ══════════════════════════")
             print(f"║  Active space : ({sum(self._nelec)}e, {norb}o) → "
                   f"{self._n_qubits} qubits")
             print(f"║  Max samples  : {self.n_samples}")

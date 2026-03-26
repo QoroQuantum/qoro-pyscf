@@ -11,17 +11,17 @@ class TestActiveSpaceUnit:
     """Tests for active_space.py."""
 
     def test_suggest_active_space_import(self):
-        from qoro_maestro_pyscf import suggest_active_space
+        from qoro_pyscf import suggest_active_space
         assert callable(suggest_active_space)
 
     def test_suggest_active_space_from_mp2_import(self):
-        from qoro_maestro_pyscf import suggest_active_space_from_mp2
+        from qoro_pyscf import suggest_active_space_from_mp2
         assert callable(suggest_active_space_from_mp2)
 
     def test_mp2_active_space_on_lih(self):
         """MP2 natural orbital selection gives a reasonable active space for LiH."""
         from pyscf import gto, scf
-        from qoro_maestro_pyscf.active_space import suggest_active_space_from_mp2
+        from qoro_pyscf.active_space import suggest_active_space_from_mp2
 
         mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g", verbose=0)
         mf = scf.RHF(mol).run()
@@ -37,7 +37,7 @@ class TestActiveSpaceUnit:
     def test_mp2_max_orbitals_cap(self):
         """max_orbitals caps the active space size."""
         from pyscf import gto, scf
-        from qoro_maestro_pyscf.active_space import suggest_active_space_from_mp2
+        from qoro_pyscf.active_space import suggest_active_space_from_mp2
 
         mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g", verbose=0)
         mf = scf.RHF(mol).run()
@@ -48,7 +48,7 @@ class TestActiveSpaceUnit:
     def test_avas_on_h2(self):
         """AVAS with 1s labels gives a CAS for H₂."""
         from pyscf import gto, scf
-        from qoro_maestro_pyscf.active_space import suggest_active_space
+        from qoro_pyscf.active_space import suggest_active_space
 
         mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g", verbose=0)
         mf = scf.RHF(mol).run()

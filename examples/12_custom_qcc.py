@@ -18,7 +18,7 @@ Example 12 — Custom Ansatz: Qubit Coupled Cluster (QCC)
 ========================================================
 
 Demonstrates the ``ansatz="custom"`` feature with a Qubit Coupled Cluster
-(QCC) circuit injected into MaestroSolver.
+(QCC) circuit injected into QoroSolver.
 
 What is QCC?
 ------------
@@ -37,11 +37,11 @@ J. Chem. Theory Comput. 14, 6317 (2018).
 
 How this example works
 -----------------------
-1. We define a ``qcc_ansatz_generator`` callable that builds a Maestro
+1. We define a ``qcc_ansatz_generator`` callable that builds a Qoro
    QuantumCircuit from a set of Pauli-word entanglers and variational
    parameters.
 2. The callable is injected via ``custom_ansatz=qcc_ansatz_generator``.
-3. MaestroSolver calls it every VQE iteration with updated parameters,
+3. QoroSolver calls it every VQE iteration with updated parameters,
    enabling the full iterative QCC workflow.
 4. We compare QCC against UCCSD and FCI on H₂.
 
@@ -58,8 +58,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.ansatze import (
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.ansatze import (
     _QC,
     _apply_hf_gates,
     uccsd_param_count,
@@ -129,7 +129,7 @@ def make_qcc_ansatz_generator(
     nelec: tuple[int, int] | int,
 ):
     """
-    Create a QCC ansatz generator callable for MaestroSolver.
+    Create a QCC ansatz generator callable for QoroSolver.
 
     Parameters
     ----------
@@ -231,7 +231,7 @@ def main():
     print(f"  Running VQE with QCC ({n_qcc_params} params)...")
     cas_qcc = mcscf.CASCI(hf_obj, norb, nelec)
     cas_qcc.verbose = 0
-    cas_qcc.fcisolver = MaestroSolver(
+    cas_qcc.fcisolver = QoroSolver(
         ansatz="custom",
         custom_ansatz=qcc_generator,
         custom_ansatz_n_params=n_qcc_params,
@@ -250,7 +250,7 @@ def main():
     print(f"  Running VQE with UCCSD ({n_uccsd} params)...")
     cas_uccsd = mcscf.CASCI(hf_obj, norb, nelec)
     cas_uccsd.verbose = 0
-    cas_uccsd.fcisolver = MaestroSolver(
+    cas_uccsd.fcisolver = QoroSolver(
         ansatz="uccsd",
         backend=backend,
         maxiter=200,

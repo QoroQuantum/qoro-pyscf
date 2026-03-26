@@ -79,12 +79,12 @@ def suggest_active_space(
     Examples
     --------
     >>> from pyscf import gto, scf
-    >>> from qoro_maestro_pyscf import suggest_active_space, MaestroSolver
+    >>> from qoro_pyscf import suggest_active_space, QoroSolver
     >>> mol = gto.M(atom="N 0 0 0; N 0 0 1.1", basis="cc-pvdz")
     >>> mf = scf.RHF(mol).run()
     >>> norb, nelec, mo = suggest_active_space(mf, "N 2p")
     >>> cas = mcscf.CASCI(mf, norb, nelec)
-    >>> cas.fcisolver = MaestroSolver(ansatz="uccsd")
+    >>> cas.fcisolver = QoroSolver(ansatz="uccsd")
     >>> cas.run(mo)
     """
     from pyscf.mcscf import avas
@@ -148,7 +148,7 @@ def suggest_active_space_from_mp2(
     Examples
     --------
     >>> from pyscf import gto, scf
-    >>> from qoro_maestro_pyscf import suggest_active_space_from_mp2
+    >>> from qoro_pyscf import suggest_active_space_from_mp2
     >>> mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g")
     >>> mf = scf.RHF(mol).run()
     >>> norb, nelec, mo = suggest_active_space_from_mp2(mf)

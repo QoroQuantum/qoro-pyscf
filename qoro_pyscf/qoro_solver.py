@@ -13,16 +13,16 @@
 # limitations under the License.
 
 """
-MaestroSolver — PySCF FCI-solver drop-in backed by Maestro VQE.
+QoroSolver — PySCF FCI-solver drop-in backed by Qoro VQE.
 
-This is the primary user-facing class of ``qoro-maestro-pyscf``.  It mirrors
+This is the primary user-facing class of ``qoro-pyscf``.  It mirrors
 the API of ``qiskit_nature_pyscf.QiskitSolver``, enabling a seamless swap:
 
     # Before (Qiskit):
     cas.fcisolver = QiskitSolver(algorithm)
 
-    # After (Maestro):
-    cas.fcisolver = MaestroSolver(ansatz="uccsd")
+    # After (Qoro):
+    cas.fcisolver = QoroSolver(ansatz="uccsd")
 
 The solver integrates with PySCF's CASCI and CASSCF objects by implementing
 the ``fcisolver`` protocol: ``kernel``, ``make_rdm1``, ``make_rdm1s``,
@@ -44,12 +44,12 @@ from scipy.optimize import minimize
 if TYPE_CHECKING:
     from maestro.circuits import QuantumCircuit
 
-from qoro_maestro_pyscf.backends import BackendConfig, configure_backend
-from qoro_maestro_pyscf.hamiltonian import (
+from qoro_pyscf.backends import BackendConfig, configure_backend
+from qoro_pyscf.hamiltonian import (
     integrals_to_qubit_hamiltonian,
     qubit_op_to_pauli_list,
 )
-from qoro_maestro_pyscf.ansatze import (
+from qoro_pyscf.ansatze import (
     hardware_efficient_ansatz,
     hardware_efficient_param_count,
     uccsd_ansatz,
@@ -57,8 +57,8 @@ from qoro_maestro_pyscf.ansatze import (
     upccd_ansatz,
     upccd_param_count,
 )
-from qoro_maestro_pyscf.expectation import compute_energy
-from qoro_maestro_pyscf.rdm import (
+from qoro_pyscf.expectation import compute_energy
+from qoro_pyscf.rdm import (
     compute_1rdm_spatial,
     compute_2rdm_spatial,
     trace_spin_rdm1,
@@ -70,12 +70,12 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MaestroSolver:
+class QoroSolver:
     """
-    PySCF FCI-solver interface that runs a VQE on the Maestro simulator.
+    PySCF FCI-solver interface that runs a VQE on the Qoro simulator.
 
     Replaces PySCF's classical FCI solver with a quantum VQE algorithm
-    executed on Maestro's CPU or GPU-accelerated backend.
+    executed on Qoro's CPU or GPU-accelerated backend.
 
     Parameters
     ----------
@@ -122,16 +122,16 @@ class MaestroSolver:
     backend : str
         Backend selection: ``"cpu"`` or ``"gpu"``. Default: ``"cpu"``.
         CPU works out of the box with no license. Switch to ``"gpu"``
-        for GPU acceleration (requires a Maestro license key).
+        for GPU acceleration (requires a Qoro license key).
     simulation : str
         Simulation mode: ``"statevector"`` or ``"mps"``. Default: ``"statevector"``.
     mps_bond_dim : int
         MPS bond dimension (for ``simulation="mps"``). Default: 64.
     license_key : str or None
-        Maestro GPU license key (e.g. ``"XXXX-XXXX-XXXX-XXXX"``).
+        Qoro GPU license key (e.g. ``"XXXX-XXXX-XXXX-XXXX"``).
         If provided, sets the ``MAESTRO_LICENSE_KEY`` env var before GPU
         init. Can also be set via the env var directly or
-        :func:`qoro_maestro_pyscf.backends.set_license_key`.
+        :func:`qoro_pyscf.backends.set_license_key`.
     initial_point : np.ndarray or None
         Initial parameter vector. If None, uses small random values.
     verbose : bool
@@ -142,16 +142,16 @@ class MaestroSolver:
     CASCI with CPU (works out of the box, no license needed):
 
     >>> from pyscf import gto, scf, mcscf
-    >>> from qoro_maestro_pyscf import MaestroSolver
+    >>> from qoro_pyscf import QoroSolver
     >>> mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
     >>> hf = scf.RHF(mol).run()
     >>> cas = mcscf.CASCI(hf, 2, 2)
-    >>> cas.fcisolver = MaestroSolver(ansatz="uccsd")
+    >>> cas.fcisolver = QoroSolver(ansatz="uccsd")
     >>> cas.run()
 
     Upgrade to GPU for faster simulation:
 
-    >>> cas.fcisolver = MaestroSolver(
+    >>> cas.fcisolver = QoroSolver(
     ...     ansatz="uccsd",
     ...     backend="gpu",
     ...     license_key="XXXX-XXXX-XXXX-XXXX",  # or set MAESTRO_LICENSE_KEY env var
@@ -159,7 +159,7 @@ class MaestroSolver:
 
     GPU MPS for larger active spaces:
 
-    >>> cas.fcisolver = MaestroSolver(
+    >>> cas.fcisolver = QoroSolver(
     ...     ansatz="hardware_efficient",
     ...     ansatz_layers=3,
     ...     backend="gpu",
@@ -169,7 +169,7 @@ class MaestroSolver:
 
     CASCI with Adam optimiser (gradient-based):
 
-    >>> cas.fcisolver = MaestroSolver(
+    >>> cas.fcisolver = QoroSolver(
     ...     ansatz="uccsd",
     ...     optimizer="adam",
     ...     learning_rate=0.01,
@@ -240,9 +240,9 @@ class MaestroSolver:
         ci0=None,
         ecore: float = 0,
         **kwargs,
-    ) -> tuple[float, "MaestroSolver"]:
+    ) -> tuple[float, "QoroSolver"]:
         """
-        Find the ground-state energy via VQE on Maestro.
+        Find the ground-state energy via VQE on Qoro.
 
         Implements PySCF's ``fcisolver.kernel`` protocol.
 
@@ -265,7 +265,7 @@ class MaestroSolver:
         -------
         e_tot : float
             Total energy (VQE energy + ecore).
-        self : MaestroSolver
+        self : QoroSolver
             Reference to this solver (used as fake CI vector by PySCF).
         """
         # --- Resolve electron counts ---
@@ -292,7 +292,7 @@ class MaestroSolver:
                     "`custom_ansatz_n_params` must be set."
                 )
 
-        # --- Configure Maestro backend ---
+        # --- Configure Qoro backend ---
         self._config = configure_backend(
             use_gpu=(self.backend == "gpu"),
             simulation=self.simulation,
@@ -302,10 +302,10 @@ class MaestroSolver:
 
         if self.verbose:
             logger.info(
-                "Maestro VQE: Backend=%s, Qubits=%d, Ansatz=%s",
+                "Qoro VQE: Backend=%s, Qubits=%d, Ansatz=%s",
                 self._config.label, n_qubits, self.ansatz,
             )
-            print(f"\nCASCI VQE solver (Maestro)")
+            print(f"\nCASCI VQE solver (Qoro)")
             print(f"  Active space : ({sum(self._nelec)}e, {norb}o) → {n_qubits} qubits")
             print(f"  Ansatz       : {self.ansatz}")
             print(f"  Backend      : {self._config.label}")
@@ -315,7 +315,7 @@ class MaestroSolver:
 
         # --- Optional Z₂ tapering ---
         if self.taper:
-            from qoro_maestro_pyscf.tapering import taper_hamiltonian
+            from qoro_pyscf.tapering import taper_hamiltonian
             self._taper_result = taper_hamiltonian(
                 qubit_op, n_qubits, self._nelec
             )
@@ -350,7 +350,7 @@ class MaestroSolver:
 
         # ──────────── ADAPT-VQE branch ────────────
         if self.ansatz == "adapt":
-            from qoro_maestro_pyscf.adapt import run_adapt_vqe
+            from qoro_pyscf.adapt import run_adapt_vqe
 
             adapt_result = run_adapt_vqe(
                 n_qubits=n_qubits,
@@ -411,7 +411,7 @@ class MaestroSolver:
 
             # --- Spin penalty (if fix_spin_ was called) ---
             if self._spin_penalty_shift > 0:
-                from qoro_maestro_pyscf.rdm import compute_1rdm_spatial
+                from qoro_pyscf.rdm import compute_1rdm_spatial
                 rdm1_a, rdm1_b = compute_1rdm_spatial(
                     qc, n_qubits, self._config
                 )
@@ -583,10 +583,10 @@ class MaestroSolver:
         -------
         energies : np.ndarray, shape (nroots,)
             Total energies for each root.
-        ci_vecs : list of MaestroSolver
+        ci_vecs : list of QoroSolver
             ``[self] * nroots`` for PySCF compatibility.
         """
-        from qoro_maestro_pyscf.expectation import compute_energy, compute_overlap
+        from qoro_pyscf.expectation import compute_energy, compute_overlap
 
         # Store ground state
         self._vqd_energies = [ground_energy]
@@ -684,9 +684,9 @@ class MaestroSolver:
     # RDM interface (PySCF protocol)
     # ──────────────────────────────────────────────────────────────────────
 
-    def _ensure_rdm1s(self, fake_ci_vec: "MaestroSolver") -> tuple[np.ndarray, np.ndarray]:
+    def _ensure_rdm1s(self, fake_ci_vec: "QoroSolver") -> tuple[np.ndarray, np.ndarray]:
         """Compute and cache spin-resolved 1-RDMs."""
-        solver = fake_ci_vec if isinstance(fake_ci_vec, MaestroSolver) else self
+        solver = fake_ci_vec if isinstance(fake_ci_vec, QoroSolver) else self
         if solver._rdm1s_cache is None:
             solver._rdm1s_cache = compute_1rdm_spatial(
                 solver._optimal_circuit, solver._n_qubits, solver._config
@@ -694,10 +694,10 @@ class MaestroSolver:
         return solver._rdm1s_cache
 
     def _ensure_rdm2s(
-        self, fake_ci_vec: "MaestroSolver"
+        self, fake_ci_vec: "QoroSolver"
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute and cache spin-resolved 2-RDMs."""
-        solver = fake_ci_vec if isinstance(fake_ci_vec, MaestroSolver) else self
+        solver = fake_ci_vec if isinstance(fake_ci_vec, QoroSolver) else self
         if solver._rdm2s_cache is None:
             solver._rdm2s_cache = compute_2rdm_spatial(
                 solver._optimal_circuit, solver._n_qubits, solver._config
@@ -706,7 +706,7 @@ class MaestroSolver:
 
     def make_rdm1(
         self,
-        fake_ci_vec: "MaestroSolver",
+        fake_ci_vec: "QoroSolver",
         norb: int,
         nelec: Union[int, tuple[int, int]],
     ) -> np.ndarray:
@@ -715,7 +715,7 @@ class MaestroSolver:
 
         Parameters
         ----------
-        fake_ci_vec : MaestroSolver
+        fake_ci_vec : QoroSolver
             Reference to self (passed by PySCF as the CI vector).
         norb : int
             Number of active spatial orbitals.
@@ -732,7 +732,7 @@ class MaestroSolver:
 
     def make_rdm1s(
         self,
-        fake_ci_vec: "MaestroSolver",
+        fake_ci_vec: "QoroSolver",
         norb: int,
         nelec: Union[int, tuple[int, int]],
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -748,7 +748,7 @@ class MaestroSolver:
 
     def make_rdm12(
         self,
-        fake_ci_vec: "MaestroSolver",
+        fake_ci_vec: "QoroSolver",
         norb: int,
         nelec: Union[int, tuple[int, int]],
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -772,7 +772,7 @@ class MaestroSolver:
 
     def make_rdm12s(
         self,
-        fake_ci_vec: "MaestroSolver",
+        fake_ci_vec: "QoroSolver",
         norb: int,
         nelec: Union[int, tuple[int, int]],
     ) -> tuple[
@@ -793,7 +793,7 @@ class MaestroSolver:
 
     def spin_square(
         self,
-        fake_ci_vec: "MaestroSolver",
+        fake_ci_vec: "QoroSolver",
         norb: int,
         nelec: Union[int, tuple[int, int]],
     ) -> tuple[float, float]:
@@ -872,7 +872,7 @@ class MaestroSolver:
             If no circuit is available (``kernel()`` not yet called and
             ``circuit`` not provided).
         """
-        from qoro_maestro_pyscf.expectation import evaluate_expectation
+        from qoro_pyscf.expectation import evaluate_expectation
 
         qc = circuit if circuit is not None else self._optimal_circuit
         if qc is None:
@@ -912,7 +912,7 @@ class MaestroSolver:
         circuit: Optional["QuantumCircuit"] = None,
     ) -> np.ndarray:
         """
-        Retrieve the exact statevector from the Maestro simulator.
+        Retrieve the exact statevector from the Qoro simulator.
 
         Returns the full complex-amplitude vector (or MPS-contracted state)
         after VQE convergence.  This is intended for fidelity benchmarking
@@ -942,11 +942,11 @@ class MaestroSolver:
             )
 
         # TODO: implement using maestro.get_state_vector once available in the
-        # installed wheel. Tracked in maestro-pyscf issue: get_state_vector binding.
+        # installed wheel. Tracked in qoro-pyscf issue: get_state_vector binding.
         raise NotImplementedError(
             "get_final_statevector() requires maestro.get_state_vector(), which "
             "is not yet available in the installed qoro-maestro wheel. "
-            "Rebuild Maestro from source to enable this method."
+            "Rebuild Qoro from source to enable this method."
         )
 
     def fix_spin_(self, shift: float = 0.2, ss: float | None = None):
@@ -966,7 +966,7 @@ class MaestroSolver:
 
         Returns
         -------
-        self : MaestroSolver
+        self : QoroSolver
             For chaining.
         """
         self._spin_penalty_shift = shift
@@ -1028,7 +1028,7 @@ class MaestroSolver:
         np.savez(f"{path}.npz", **arrays)
 
     @classmethod
-    def load(cls, path: str | Path) -> "MaestroSolver":
+    def load(cls, path: str | Path) -> "QoroSolver":
         """
         Restore a solver from a checkpoint saved by :meth:`save`.
 
@@ -1044,7 +1044,7 @@ class MaestroSolver:
 
         Returns
         -------
-        MaestroSolver
+        QoroSolver
             A new solver instance with restored state.
         """
         path = Path(path)

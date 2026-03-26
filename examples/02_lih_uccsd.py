@@ -18,7 +18,7 @@ Example 2 — LiH with UCCSD Ansatz
 ==================================
 
 Computes the ground-state energy of lithium hydride (LiH) using the Unitary
-Coupled Cluster Singles and Doubles (UCCSD) ansatz on Maestro.
+Coupled Cluster Singles and Doubles (UCCSD) ansatz on Qoro.
 
 Why UCCSD?
 ----------
@@ -55,7 +55,7 @@ import time
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 
 def main():
@@ -98,7 +98,7 @@ def main():
     # --- VQE with UCCSD ---
     print(f"\n  Running VQE with UCCSD ansatz...")
     cas_vqe = mcscf.CASCI(hf_obj, norb, nelec)
-    cas_vqe.fcisolver = MaestroSolver(
+    cas_vqe.fcisolver = QoroSolver(
         ansatz="uccsd",
         backend=backend,
         maxiter=200,

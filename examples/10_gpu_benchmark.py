@@ -17,11 +17,11 @@
 Example 10 — GPU vs CPU Benchmark (Hydrogen Chains)
 ====================================================
 
-Benchmarks Maestro GPU vs CPU performance on hydrogen chains of increasing
+Benchmarks Qoro GPU vs CPU performance on hydrogen chains of increasing
 size using the UpCCD ansatz.  The active space grows with chain length,
 pushing the system into a regime where GPU acceleration matters.
 
-This is designed to be run on a machine with an NVIDIA GPU and a Maestro
+This is designed to be run on a machine with an NVIDIA GPU and a Qoro
 license key.
 
 Benchmark systems
@@ -60,8 +60,8 @@ import time
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.ansatze import upccd_param_count
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.ansatze import upccd_param_count
 
 
 def build_hydrogen_chain(n_atoms: int, spacing: float = 1.5) -> gto.Mole:
@@ -87,7 +87,7 @@ def run_benchmark(n_atoms, backend, simulation, mps_bond_dim, maxiter):
     # VQE with UpCCD
     cas_vqe = mcscf.CASCI(hf_obj, norb, nelec)
     cas_vqe.verbose = 0
-    cas_vqe.fcisolver = MaestroSolver(
+    cas_vqe.fcisolver = QoroSolver(
         ansatz="upccd",
         backend=backend,
         simulation=simulation,
@@ -145,7 +145,7 @@ def main():
         sim_label += f" (bond_dim={args.bond_dim})"
 
     print("=" * 80)
-    print("  MAESTRO GPU vs CPU BENCHMARK — HYDROGEN CHAINS + UpCCD")
+    print("  QORO GPU vs CPU BENCHMARK — HYDROGEN CHAINS + UpCCD")
     print(f"  Simulation: {sim_label}")
     print(f"  Backends:   {', '.join(b.upper() for b in backends)}")
     print(f"  Chains:     {', '.join(f'H{n}' for n in chain_sizes)}")

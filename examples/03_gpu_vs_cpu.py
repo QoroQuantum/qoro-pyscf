@@ -34,7 +34,7 @@ are massively parallelised — thousands of amplitudes updated simultaneously.
 A typical VQE runs 100–500 iterations, each with dozens of Pauli evaluations.
 The GPU speedup compounds across all of these.
 
-What Maestro offers
+What Qoro offers
 -------------------
 - **CPU by default** — works out of the box, no license needed
 - **GPU upgrade** — switch to GPU for dramatic speedups on larger systems
@@ -55,7 +55,7 @@ Usage
 import time
 
 from pyscf import gto, scf, mcscf
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 
 def main():
@@ -78,7 +78,7 @@ def main():
         print(f"  Running on {backend_name.upper()}...")
 
         cas = mcscf.CASCI(hf_obj, 2, 2)
-        cas.fcisolver = MaestroSolver(
+        cas.fcisolver = QoroSolver(
             ansatz="hardware_efficient",
             ansatz_layers=2,
             backend=backend_name,

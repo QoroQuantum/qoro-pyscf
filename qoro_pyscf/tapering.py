@@ -143,7 +143,7 @@ def taper_hamiltonian(
     Examples
     --------
     >>> from openfermion import QubitOperator
-    >>> from qoro_maestro_pyscf.tapering import taper_hamiltonian
+    >>> from qoro_pyscf.tapering import taper_hamiltonian
     >>> H = QubitOperator("Z0 Z1", 0.5) + QubitOperator("X0 X1", 0.25)
     >>> result = taper_hamiltonian(H, n_qubits=4, nelec=(1, 1))
     >>> result.tapered_n_qubits < 4

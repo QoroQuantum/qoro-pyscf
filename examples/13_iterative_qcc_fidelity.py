@@ -22,7 +22,7 @@ Advanced example combining all three features added for the Izmaylov lab:
 1. **Dynamic ansatz injection** — iterative QCC macro-cycles where new
    Pauli-word entanglers are screened and added between optimisation rounds.
 2. **Custom Pauli evaluation** — ``evaluate_custom_paulis()`` to directly
-   evaluate grouped Pauli terms on Maestro without OpenFermion.
+   evaluate grouped Pauli terms on Qoro without OpenFermion.
 3. **Raw state extraction** — ``get_final_statevector()`` to compute exact
    state fidelity against exact diagonalisation.
 
@@ -63,8 +63,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.ansatze import _QC, _apply_hf_gates
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.ansatze import _QC, _apply_hf_gates
 
 if TYPE_CHECKING:
     from maestro.circuits import QuantumCircuit
@@ -218,7 +218,7 @@ def main():
 
             # Forward (+ε)
             params_fwd = np.append(params, +EPSILON)
-            solver_fwd = MaestroSolver(
+            solver_fwd = QoroSolver(
                 ansatz="custom",
                 custom_ansatz=trial_gen,
                 custom_ansatz_n_params=len(trial_entanglers),
@@ -234,7 +234,7 @@ def main():
 
             # Backward (-ε)
             params_bwd = np.append(params, -EPSILON)
-            solver_bwd = MaestroSolver(
+            solver_bwd = QoroSolver(
                 ansatz="custom",
                 custom_ansatz=trial_gen,
                 custom_ansatz_n_params=len(trial_entanglers),
@@ -267,7 +267,7 @@ def main():
 
         # --- Re-optimise all parameters ---
         gen = make_qcc_generator(selected_entanglers)
-        solver = MaestroSolver(
+        solver = QoroSolver(
             ansatz="custom",
             custom_ansatz=gen,
             custom_ansatz_n_params=len(selected_entanglers),

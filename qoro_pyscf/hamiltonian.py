@@ -17,7 +17,7 @@ Hamiltonian construction: PySCF integrals → OpenFermion QubitOperator.
 
 Converts one- and two-electron integrals (as delivered by PySCF's CASCI/CASSCF
 ``kernel`` call) into a qubit Hamiltonian via the Jordan-Wigner transformation.
-The resulting Pauli terms are formatted for Maestro's ``estimate()`` API.
+The resulting Pauli terms are formatted for Qoro's ``estimate()`` API.
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ def qubit_op_to_pauli_list(
     n_qubits: int,
 ) -> tuple[float, list[str], np.ndarray]:
     """
-    Convert an OpenFermion QubitOperator into Maestro-compatible observables.
+    Convert an OpenFermion QubitOperator into Qoro-compatible observables.
 
     Parameters
     ----------
@@ -167,7 +167,7 @@ def qubit_op_to_pauli_list(
     identity_coeff : float
         Coefficient of the all-identity term (classical energy offset).
     pauli_labels : list[str]
-        Pauli strings for Maestro, e.g. ``["XZIY", "ZZII"]``.
+        Pauli strings for Qoro, e.g. ``["XZIY", "ZZII"]``.
     pauli_coeffs : np.ndarray
         Complex coefficients for each Pauli term.
     """

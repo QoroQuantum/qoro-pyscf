@@ -18,8 +18,8 @@ Example 5 — CASSCF Orbital Optimisation
 ========================================
 
 Runs CASSCF (Complete Active Space Self-Consistent Field) where PySCF
-optimises the molecular orbitals while MaestroSolver handles the CI problem
-on the Maestro simulator.
+optimises the molecular orbitals while QoroSolver handles the CI problem
+on the Qoro simulator.
 
 Why CASSCF matters
 ------------------
@@ -29,8 +29,8 @@ energy — this is the standard method in production quantum chemistry.
 
 The key requirement is that the solver must provide accurate RDMs (reduced
 density matrices), because PySCF uses them to compute the orbital gradient.
-Our MaestroSolver reconstructs RDMs from the optimised VQE circuit via
-Maestro's estimate() function.
+Our QoroSolver reconstructs RDMs from the optimised VQE circuit via
+Qoro's estimate() function.
 
 CASSCF is what turns a VQE demo into a real chemistry tool.
 
@@ -50,7 +50,7 @@ import argparse
 import time
 
 from pyscf import gto, scf, mcscf
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 
 def main():
@@ -87,10 +87,10 @@ def main():
     fci_e = cas_fci.kernel()[0]
     print(f"  FCI/CASCI energy: {fci_e:+.10f} Ha")
 
-    # --- CASCI with MaestroSolver ---
+    # --- CASCI with QoroSolver ---
     print(f"\n  [CASCI] Fixed HF orbitals + VQE...")
     cas_ci = mcscf.CASCI(hf_obj, norb, nelec)
-    cas_ci.fcisolver = MaestroSolver(
+    cas_ci.fcisolver = QoroSolver(
         ansatz="hardware_efficient",
         ansatz_layers=2,
         backend=backend,
@@ -103,10 +103,10 @@ def main():
     print(f"    Energy  : {casci_e:+.10f} Ha")
     print(f"    Time    : {casci_time:.2f} s")
 
-    # --- CASSCF with MaestroSolver ---
+    # --- CASSCF with QoroSolver ---
     print(f"\n  [CASSCF] Optimised orbitals + VQE...")
     cas_scf = mcscf.CASSCF(hf_obj, norb, nelec)
-    cas_scf.fcisolver = MaestroSolver(
+    cas_scf.fcisolver = QoroSolver(
         ansatz="hardware_efficient",
         ansatz_layers=2,
         backend=backend,

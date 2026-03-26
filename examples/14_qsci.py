@@ -22,7 +22,7 @@ Usage
 import numpy as np
 from pyscf import gto, scf, mcscf, fci
 
-from qoro_maestro_pyscf import MaestroSolver, QSCISolver
+from qoro_pyscf import QoroSolver, QSCISolver
 
 
 def compute_energies(bond_length: float) -> dict:
@@ -44,7 +44,7 @@ def compute_energies(bond_length: float) -> dict:
 
     # --- VQE with hardware-efficient ansatz (intentionally imperfect) ---
     cas_vqe = mcscf.CASCI(hf, norb, nelec)
-    cas_vqe.fcisolver = MaestroSolver(
+    cas_vqe.fcisolver = QoroSolver(
         ansatz="hardware_efficient",
         ansatz_layers=2,
         maxiter=100,   # limited iterations — shows QSCI's recovery power
@@ -54,7 +54,7 @@ def compute_energies(bond_length: float) -> dict:
 
     # --- QSCI with the same ansatz ---
     cas_qsci = mcscf.CASCI(hf, norb, nelec)
-    inner = MaestroSolver(
+    inner = QoroSolver(
         ansatz="hardware_efficient",
         ansatz_layers=2,
         maxiter=100,

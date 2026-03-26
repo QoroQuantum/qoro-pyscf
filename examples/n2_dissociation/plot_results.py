@@ -122,7 +122,7 @@ def plot_pes(data: dict, out_dir: Path):
         r_gpu = [r[i] for i, e in enumerate(vqe_gpu) if e is not None]
         e_gpu = [e for e in vqe_gpu if e is not None]
         ax.plot(r_gpu, e_gpu, "o-", color=COLORS["vqe_gpu"],
-                label="UCCSD-VQE (Maestro GPU)", markersize=6,
+                label="UCCSD-VQE (Qoro GPU)", markersize=6,
                 markeredgecolor="white", markeredgewidth=0.8, zorder=5)
 
     # VQE on CPU
@@ -195,7 +195,7 @@ def plot_timing(data: dict, out_dir: Path):
     ax1.fill_between(rv, ct, gt, alpha=0.15, color=COLORS["speedup"],
                      label="Time saved")
     ax1.plot(rv, ct, "s-", color=COLORS["vqe_cpu"], label="CPU", markersize=6)
-    ax1.plot(rv, gt, "o-", color=COLORS["vqe_gpu"], label="GPU (Maestro)",
+    ax1.plot(rv, gt, "o-", color=COLORS["vqe_gpu"], label="GPU (Qoro)",
              markersize=6, markeredgecolor="white", markeredgewidth=0.8)
     ax1.set_xlabel("N–N bond length (Å)")
     ax1.set_ylabel("Wall time (seconds)")
@@ -291,7 +291,7 @@ def plot_summary(data: dict, out_dir: Path):
         e_gpu = [e for e in gpu if e is not None]
         ax.plot(r_gpu, e_gpu, "o", color=COLORS["vqe_gpu"], markersize=10,
                 markeredgecolor="white", markeredgewidth=1.5,
-                label="VQE (Maestro GPU)", zorder=5)
+                label="VQE (Qoro GPU)", zorder=5)
 
     # CCSD(T)
     ccsd_t = data.get("ccsd_t_energies", [])
@@ -308,7 +308,7 @@ def plot_summary(data: dict, out_dir: Path):
     # Title with Qoro branding
     ax.set_title(
         f"N₂ Dissociation — UCCSD-VQE on {meta['n_qubits']} Qubits\n"
-        f"Powered by Maestro GPU",
+        f"Powered by Qoro GPU",
         fontsize=16, fontweight="bold",
     )
 

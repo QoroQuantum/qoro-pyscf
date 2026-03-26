@@ -29,7 +29,7 @@ The dipole moment is a one-electron property — it only needs the 1-RDM:
 
     μ = Σ_pq D_pq ⟨p|r|q⟩ + nuclear contribution
 
-Since our MaestroSolver already computes the 1-RDM from the VQE circuit,
+Since our QoroSolver already computes the 1-RDM from the VQE circuit,
 we can compute any one-electron property. PySCF provides the integrals
 ⟨p|r|q⟩, and we provide D_pq.
 
@@ -50,8 +50,8 @@ import argparse
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.properties import compute_dipole_moment, compute_natural_orbitals
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.properties import compute_dipole_moment, compute_natural_orbitals
 
 
 def main():
@@ -85,10 +85,10 @@ def main():
     fci_rdm1 = cas_fci.fcisolver.make_rdm1(fcivec, norb, nelec)
     fci_dipole, fci_mag = compute_dipole_moment(mol, cas_fci.mo_coeff, fci_rdm1)
 
-    # --- VQE with MaestroSolver ---
+    # --- VQE with QoroSolver ---
     print(f"\n  Running VQE...")
     cas_vqe = mcscf.CASCI(hf_obj, norb, nelec)
-    cas_vqe.fcisolver = MaestroSolver(
+    cas_vqe.fcisolver = QoroSolver(
         ansatz="uccsd",
         backend=backend,
         maxiter=200,

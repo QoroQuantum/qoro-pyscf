@@ -12,7 +12,7 @@ class TestTaperingUnit:
 
     def test_find_z2_symmetries(self):
         """find_z2_symmetries returns 2 stabilizers for H₂."""
-        from qoro_maestro_pyscf.tapering import find_z2_symmetries
+        from qoro_pyscf.tapering import find_z2_symmetries
         from openfermion import QubitOperator
 
         stabilizers = find_z2_symmetries(n_qubits=4, nelec=(1, 1))
@@ -23,7 +23,7 @@ class TestTaperingUnit:
     def test_taper_hamiltonian_reduces_qubits(self):
         """Tapering should reduce from 4 qubits."""
         from openfermion import QubitOperator
-        from qoro_maestro_pyscf.tapering import taper_hamiltonian
+        from qoro_pyscf.tapering import taper_hamiltonian
 
         H = (
             QubitOperator("Z0", 0.5)
@@ -42,7 +42,7 @@ class TestTaperingUnit:
 
     def test_tapering_result_structure(self):
         """TaperingResult has correct dataclass fields."""
-        from qoro_maestro_pyscf import TaperingResult
+        from qoro_pyscf import TaperingResult
         import dataclasses
 
         fields = {f.name for f in dataclasses.fields(TaperingResult)}
@@ -55,7 +55,7 @@ class TestTaperingUnit:
     def test_custom_stabilizers(self):
         """Custom stabilizers are used instead of auto-detected ones."""
         from openfermion import QubitOperator
-        from qoro_maestro_pyscf.tapering import taper_hamiltonian
+        from qoro_pyscf.tapering import taper_hamiltonian
 
         H = QubitOperator("Z0", 1.0) + QubitOperator("", -0.5)
         custom_stab = [QubitOperator("Z0")]

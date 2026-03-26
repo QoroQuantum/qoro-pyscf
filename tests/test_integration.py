@@ -28,23 +28,23 @@ class TestBackendsUnit:
     """Test backend configuration logic."""
 
     def test_simulation_mode_enum(self):
-        from qoro_maestro_pyscf.backends import SimulationMode
+        from qoro_pyscf.backends import SimulationMode
         assert hasattr(SimulationMode, "STATEVECTOR") or "statevector" in dir(SimulationMode)
 
     def test_simulation_mode_invalid(self):
-        from qoro_maestro_pyscf.backends import configure_backend
+        from qoro_pyscf.backends import configure_backend
         with pytest.raises((ValueError, KeyError)):
             configure_backend(use_gpu=False, simulation="invalid_mode")
 
     def test_set_license_key(self):
         import os
-        from qoro_maestro_pyscf.backends import set_license_key
+        from qoro_pyscf.backends import set_license_key
         set_license_key("TEST-KEY-123")
         assert os.environ.get("MAESTRO_LICENSE_KEY") == "TEST-KEY-123"
 
     def test_set_license_key_overwrite(self):
         import os
-        from qoro_maestro_pyscf.backends import set_license_key
+        from qoro_pyscf.backends import set_license_key
         set_license_key("FIRST")
         set_license_key("SECOND")
         assert os.environ.get("MAESTRO_LICENSE_KEY") == "SECOND"
@@ -58,14 +58,14 @@ class TestRdmUnit:
     """Test RDM tracing functions."""
 
     def test_trace_spin_rdm1(self):
-        from qoro_maestro_pyscf.rdm import trace_spin_rdm1
+        from qoro_pyscf.rdm import trace_spin_rdm1
         rdm1_a = np.eye(2) * 0.5
         rdm1_b = np.eye(2) * 0.3
         result = trace_spin_rdm1(rdm1_a, rdm1_b)
         np.testing.assert_array_almost_equal(result, np.eye(2) * 0.8)
 
     def test_trace_spin_rdm2(self):
-        from qoro_maestro_pyscf.rdm import trace_spin_rdm2
+        from qoro_pyscf.rdm import trace_spin_rdm2
         n = 2
         rdm2_aa = np.random.rand(n, n, n, n)
         rdm2_ab = np.random.rand(n, n, n, n)
@@ -74,7 +74,7 @@ class TestRdmUnit:
         assert result.shape == (n, n, n, n)
 
     def test_trace_rdm1_shape(self):
-        from qoro_maestro_pyscf.rdm import trace_spin_rdm1
+        from qoro_pyscf.rdm import trace_spin_rdm1
         n = 3
         rdm1_a = np.random.rand(n, n)
         rdm1_b = np.random.rand(n, n)
@@ -83,7 +83,7 @@ class TestRdmUnit:
 
     def test_trace_rdm2_symmetry(self):
         """rdm2_ba should be the transpose of rdm2_ab."""
-        from qoro_maestro_pyscf.rdm import trace_spin_rdm2
+        from qoro_pyscf.rdm import trace_spin_rdm2
         n = 2
         rdm2_aa = np.zeros((n, n, n, n))
         rdm2_bb = np.zeros((n, n, n, n))
@@ -103,28 +103,28 @@ class TestPropertiesUnit:
 
     def test_natural_orbitals_identity(self):
         """Identity 1-RDM → occupations are all 1."""
-        from qoro_maestro_pyscf.properties import compute_natural_orbitals
+        from qoro_pyscf.properties import compute_natural_orbitals
         rdm1 = np.eye(3)
         occ, _ = compute_natural_orbitals(rdm1)
         np.testing.assert_array_almost_equal(occ, [1, 1, 1])
 
     def test_natural_orbitals_sorting(self):
         """Occupations should be sorted descending."""
-        from qoro_maestro_pyscf.properties import compute_natural_orbitals
+        from qoro_pyscf.properties import compute_natural_orbitals
         rdm1 = np.diag([0.1, 0.9, 0.5])
         occ, _ = compute_natural_orbitals(rdm1)
         assert list(occ) == sorted(occ, reverse=True)
 
     def test_natural_orbitals_trace_preserved(self):
         """Sum of occupations should equal trace of 1-RDM."""
-        from qoro_maestro_pyscf.properties import compute_natural_orbitals
+        from qoro_pyscf.properties import compute_natural_orbitals
         rdm1 = np.array([[1.5, 0.2], [0.2, 0.5]])
         occ, _ = compute_natural_orbitals(rdm1)
         assert abs(occ.sum() - np.trace(rdm1)) < 1e-10
 
     def test_natural_orbitals_symmetric(self):
         """Should work with symmetric matrices."""
-        from qoro_maestro_pyscf.properties import compute_natural_orbitals
+        from qoro_pyscf.properties import compute_natural_orbitals
         A = np.random.rand(4, 4)
         rdm1 = (A + A.T) / 2
         occ, coeffs = compute_natural_orbitals(rdm1)
@@ -140,7 +140,7 @@ class TestHamiltonianIntegration:
     """Test Hamiltonian construction with OpenFermion."""
 
     def test_h2_hamiltonian_shape(self):
-        from qoro_maestro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
+        from qoro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
         from openfermion import QubitOperator
         norb = 2
         h1 = np.random.rand(norb, norb)
@@ -153,7 +153,7 @@ class TestHamiltonianIntegration:
         assert len(qubit_op.terms) > 0
 
     def test_pauli_list_format(self):
-        from qoro_maestro_pyscf.hamiltonian import (
+        from qoro_pyscf.hamiltonian import (
             integrals_to_qubit_hamiltonian, qubit_op_to_pauli_list,
         )
         norb = 2
@@ -168,7 +168,7 @@ class TestHamiltonianIntegration:
         assert len(labels) == len(coeffs)
 
     def test_uhf_integrals(self):
-        from qoro_maestro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
+        from qoro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
         norb = 2
         h1_a = np.eye(norb) * -1.0
         h1_b = np.eye(norb) * -0.9
@@ -182,7 +182,7 @@ class TestHamiltonianIntegration:
 
     def test_zero_integrals(self):
         """Zero integrals → zero Hamiltonian."""
-        from qoro_maestro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
+        from qoro_pyscf.hamiltonian import integrals_to_qubit_hamiltonian
         norb = 2
         h1 = np.zeros((norb, norb))
         h2 = np.zeros((norb, norb, norb, norb))
@@ -192,7 +192,7 @@ class TestHamiltonianIntegration:
 
     def test_hermitian_hamiltonian(self):
         """Qubit Hamiltonian should be Hermitian (real coefficients for Paulis)."""
-        from qoro_maestro_pyscf.hamiltonian import (
+        from qoro_pyscf.hamiltonian import (
             integrals_to_qubit_hamiltonian, qubit_op_to_pauli_list,
         )
         norb = 2
@@ -214,31 +214,31 @@ class TestPackageExports:
     """Test that all public API is exported correctly."""
 
     def test_version(self):
-        import qoro_maestro_pyscf
-        assert isinstance(qoro_maestro_pyscf.__version__, str)
-        assert len(qoro_maestro_pyscf.__version__) > 0
+        import qoro_pyscf
+        assert isinstance(qoro_pyscf.__version__, str)
+        assert len(qoro_pyscf.__version__) > 0
 
     def test_all_exports(self):
-        import qoro_maestro_pyscf
+        import qoro_pyscf
         expected = {
-            "MaestroSolver", "BackendConfig", "configure_backend",
+            "QoroSolver", "BackendConfig", "configure_backend",
             "set_license_key", "compute_dipole_moment",
             "compute_natural_orbitals", "suggest_active_space",
             "suggest_active_space_from_mp2", "taper_hamiltonian",
             "TaperingResult",
         }
-        assert expected.issubset(set(qoro_maestro_pyscf.__all__))
+        assert expected.issubset(set(qoro_pyscf.__all__))
 
     def test_py_typed_exists(self):
         from pathlib import Path
-        import qoro_maestro_pyscf
-        pkg_dir = Path(qoro_maestro_pyscf.__file__).parent
+        import qoro_pyscf
+        pkg_dir = Path(qoro_pyscf.__file__).parent
         assert (pkg_dir / "py.typed").exists()
 
     def test_all_importable(self):
-        import qoro_maestro_pyscf
-        for name in qoro_maestro_pyscf.__all__:
-            assert hasattr(qoro_maestro_pyscf, name), f"{name} not importable"
+        import qoro_pyscf
+        for name in qoro_pyscf.__all__:
+            assert hasattr(qoro_pyscf, name), f"{name} not importable"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

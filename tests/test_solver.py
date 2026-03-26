@@ -1,7 +1,7 @@
 # Copyright 2026 Qoro Quantum Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for MaestroSolver fields, methods, and serialisation."""
+"""Tests for QoroSolver fields, methods, and serialisation."""
 
 import numpy as np
 import pytest
@@ -16,15 +16,15 @@ def _has_maestro() -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Unit tests — no Maestro required
+# Unit tests — no Qoro required
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestSolverFieldsUnit:
-    """Test MaestroSolver dataclass fields and defaults."""
+    """Test QoroSolver dataclass fields and defaults."""
 
     def test_defaults(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        s = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        s = QoroSolver()
         assert s.ansatz == "hardware_efficient"
         assert s.ansatz_layers == 2
         assert s.backend == "cpu"
@@ -42,12 +42,12 @@ class TestSolverFieldsUnit:
 
     def test_custom_ansatz_fields(self):
         """Setting ansatz='custom' with callable stores fields correctly."""
-        from qoro_maestro_pyscf import MaestroSolver
+        from qoro_pyscf import QoroSolver
 
         def my_ansatz(params, n_qubits, nelec):
             return None
 
-        solver = MaestroSolver(
+        solver = QoroSolver(
             ansatz="custom",
             custom_ansatz=my_ansatz,
             custom_ansatz_n_params=5,
@@ -58,8 +58,8 @@ class TestSolverFieldsUnit:
 
     def test_custom_ansatz_requires_callable(self):
         """ansatz='custom' without custom_ansatz raises ValueError."""
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(ansatz="custom")
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(ansatz="custom")
         with pytest.raises(ValueError, match="custom_ansatz"):
             solver.kernel(
                 np.zeros((2, 2)), np.zeros((2, 2, 2, 2)), 2, (1, 1)
@@ -67,8 +67,8 @@ class TestSolverFieldsUnit:
 
     def test_custom_ansatz_requires_n_params(self):
         """Callable custom_ansatz without n_params raises ValueError."""
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(
             ansatz="custom",
             custom_ansatz=lambda p, n, e: None,
         )
@@ -79,12 +79,12 @@ class TestSolverFieldsUnit:
 
     def test_custom_ansatz_prebuilt_n_params_zero(self):
         """Pre-built circuit (non-callable) yields zero parameters."""
-        from qoro_maestro_pyscf import MaestroSolver
+        from qoro_pyscf import QoroSolver
 
         class FakeCircuit:
             pass
 
-        solver = MaestroSolver(
+        solver = QoroSolver(
             ansatz="custom",
             custom_ansatz=FakeCircuit(),
         )
@@ -93,44 +93,44 @@ class TestSolverFieldsUnit:
 
     def test_callback_field(self):
         """Callback callable is stored."""
-        from qoro_maestro_pyscf import MaestroSolver
+        from qoro_pyscf import QoroSolver
         calls = []
-        solver = MaestroSolver(callback=lambda it, e, p: calls.append(it))
+        solver = QoroSolver(callback=lambda it, e, p: calls.append(it))
         assert solver.callback is not None
 
     def test_taper_field_set(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        assert MaestroSolver(taper=True).taper is True
+        from qoro_pyscf import QoroSolver
+        assert QoroSolver(taper=True).taper is True
 
     def test_vqd_penalty_custom(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        assert MaestroSolver(vqd_penalty=10.0).vqd_penalty == 10.0
+        from qoro_pyscf import QoroSolver
+        assert QoroSolver(vqd_penalty=10.0).vqd_penalty == 10.0
 
     def test_learning_rate_default(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        assert MaestroSolver().learning_rate == 0.01
+        from qoro_pyscf import QoroSolver
+        assert QoroSolver().learning_rate == 0.01
 
     def test_learning_rate_custom(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        assert MaestroSolver(learning_rate=0.05).learning_rate == 0.05
+        from qoro_pyscf import QoroSolver
+        assert QoroSolver(learning_rate=0.05).learning_rate == 0.05
 
     def test_grad_shift_default(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        assert MaestroSolver().grad_shift == pytest.approx(1e-3)
+        from qoro_pyscf import QoroSolver
+        assert QoroSolver().grad_shift == pytest.approx(1e-3)
 
     def test_adam_optimizer_field(self):
         """optimizer='adam' is accepted without errors."""
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(optimizer="adam", learning_rate=0.02)
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(optimizer="adam", learning_rate=0.02)
         assert solver.optimizer == "adam"
         assert solver.learning_rate == 0.02
 
 
 class TestAdamConvergenceUnit:
-    """Test Adam optimizer logic (no Maestro required).
+    """Test Adam optimizer logic (no Qoro required).
 
     These tests replicate the exact Adam + parameter-shift loop from
-    MaestroSolver.kernel() on simple known cost functions.
+    QoroSolver.kernel() on simple known cost functions.
     """
 
     def test_parameter_shift_gradient_exact(self):
@@ -185,16 +185,16 @@ class TestFixSpinUnit:
     """Test fix_spin_ method."""
 
     def test_sets_fields(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         ret = solver.fix_spin_(shift=0.5, ss=2.0)
         assert ret is solver
         assert solver._spin_penalty_shift == 0.5
         assert solver._spin_penalty_ss == 2.0
 
     def test_defaults_to_singlet(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         solver.fix_spin_(shift=0.3)
         assert solver._spin_penalty_ss == 0.0
 
@@ -203,14 +203,14 @@ class TestEvaluateCustomPaulisUnit:
     """Test validation for evaluate_custom_paulis and get_final_statevector."""
 
     def test_evaluate_custom_paulis_no_circuit(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         with pytest.raises(RuntimeError, match="No circuit available"):
             solver.evaluate_custom_paulis([])
 
     def test_get_final_statevector_no_circuit(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         with pytest.raises(RuntimeError, match="No circuit available"):
             solver.get_final_statevector()
 
@@ -219,9 +219,9 @@ class TestSaveLoadUnit:
     """Test save/load serialisation."""
 
     def test_round_trip(self, tmp_path):
-        from qoro_maestro_pyscf import MaestroSolver
+        from qoro_pyscf import QoroSolver
 
-        solver = MaestroSolver(
+        solver = QoroSolver(
             ansatz="uccsd",
             optimizer="L-BFGS-B",
             maxiter=500,
@@ -240,7 +240,7 @@ class TestSaveLoadUnit:
 
         path = tmp_path / "checkpoint"
         solver.save(path)
-        loaded = MaestroSolver.load(path)
+        loaded = QoroSolver.load(path)
 
         assert loaded.ansatz == "uccsd"
         assert loaded.optimizer == "L-BFGS-B"
@@ -263,62 +263,62 @@ class TestSaveLoadUnit:
         )
 
     def test_empty_solver(self, tmp_path):
-        from qoro_maestro_pyscf import MaestroSolver
+        from qoro_pyscf import QoroSolver
 
-        solver = MaestroSolver()
+        solver = QoroSolver()
         path = tmp_path / "empty"
         solver.save(path)
-        loaded = MaestroSolver.load(path)
+        loaded = QoroSolver.load(path)
         assert loaded.optimal_params is None
         assert loaded.energy_history == []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Integration tests — require Maestro native library
+# Integration tests — require Qoro native library
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
-class TestMaestroSolverIntegration:
-    """Test MaestroSolver with Maestro backend."""
+class TestQoroSolverIntegration:
+    """Test QoroSolver with Qoro backend."""
 
     def test_solver_construction(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(
             ansatz="hardware_efficient", ansatz_layers=2, backend="cpu",
         )
         assert solver.ansatz == "hardware_efficient"
 
     def test_solver_uccsd_construction(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(ansatz="uccsd", backend="gpu")
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(ansatz="uccsd", backend="gpu")
         assert solver.ansatz == "uccsd"
 
     def test_solver_mps_construction(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(simulation="mps", mps_bond_dim=128)
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(simulation="mps", mps_bond_dim=128)
         assert solver.simulation == "mps"
         assert solver.mps_bond_dim == 128
 
     def test_solver_license_key(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver(license_key="TEST-1234")
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver(license_key="TEST-1234")
         assert solver.license_key == "TEST-1234"
 
     def test_approx_kernel_alias(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         assert solver.approx_kernel == solver.kernel
 
     def test_fix_spin_chaining(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         result = solver.fix_spin_(shift=0.5, ss=0.0)
         assert result is solver
         assert solver._spin_penalty_shift == 0.5
 
     def test_fix_spin_defaults(self):
-        from qoro_maestro_pyscf import MaestroSolver
-        solver = MaestroSolver()
+        from qoro_pyscf import QoroSolver
+        solver = QoroSolver()
         solver.fix_spin_()
         assert solver._spin_penalty_shift == 0.2
         assert solver._spin_penalty_ss == 0.0

@@ -60,8 +60,8 @@ import time
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.ansatze import upccd_param_count, uccsd_param_count
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.ansatze import upccd_param_count, uccsd_param_count
 
 
 def main():
@@ -114,7 +114,7 @@ def main():
     print(f"  Running VQE with UpCCD ({n_upccd} params)...")
     cas_upccd = mcscf.CASCI(hf_obj, norb, nelec)
     cas_upccd.verbose = 0
-    cas_upccd.fcisolver = MaestroSolver(
+    cas_upccd.fcisolver = QoroSolver(
         ansatz="upccd",
         backend=backend,
         maxiter=300,
@@ -130,7 +130,7 @@ def main():
     print(f"  Running VQE with UCCSD ({n_uccsd} params)...")
     cas_uccsd = mcscf.CASCI(hf_obj, norb, nelec)
     cas_uccsd.verbose = 0
-    cas_uccsd.fcisolver = MaestroSolver(
+    cas_uccsd.fcisolver = QoroSolver(
         ansatz="uccsd",
         backend=backend,
         maxiter=300,

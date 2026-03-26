@@ -52,8 +52,8 @@ import time
 import numpy as np
 from pyscf import gto, scf, mcscf
 
-from qoro_maestro_pyscf import MaestroSolver
-from qoro_maestro_pyscf.ansatze import upccd_param_count, uccsd_param_count
+from qoro_pyscf import QoroSolver
+from qoro_pyscf.ansatze import upccd_param_count, uccsd_param_count
 
 
 def main():
@@ -95,7 +95,7 @@ def main():
     print(f"  Running ADAPT-VQE...")
     cas_adapt = mcscf.CASCI(hf_obj, norb, nelec)
     cas_adapt.verbose = 0
-    cas_adapt.fcisolver = MaestroSolver(
+    cas_adapt.fcisolver = QoroSolver(
         ansatz="adapt",
         backend=backend,
         adapt_threshold=1e-3,
@@ -114,7 +114,7 @@ def main():
     print(f"  Running UpCCD ({n_upccd} params)...")
     cas_upccd = mcscf.CASCI(hf_obj, norb, nelec)
     cas_upccd.verbose = 0
-    cas_upccd.fcisolver = MaestroSolver(
+    cas_upccd.fcisolver = QoroSolver(
         ansatz="upccd", backend=backend, verbose=False,
     )
 

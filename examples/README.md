@@ -1,11 +1,11 @@
 # Examples
 
-Hands-on examples demonstrating `qoro-maestro-pyscf` for quantum chemistry. All examples run on **CPU by default** — no GPU or license needed to get started.
+Hands-on examples demonstrating `qoro-pyscf` for quantum chemistry. All examples run on **CPU by default** — no GPU or license needed to get started.
 
 ## Quick Start
 
 ```bash
-pip install qoro-maestro-pyscf
+pip install qoro-pyscf
 cd examples/
 
 # Run any example (CPU by default)
@@ -24,7 +24,7 @@ python 06_nevpt2.py --gpu
 |---|--------|-------|:------:|-------------|
 | 1 | [01_h2_dissociation.py](01_h2_dissociation.py) | H₂ bond-breaking curve | 4 | PES scan, multi-reference character, VQE vs FCI |
 | 2 | [02_lih_uccsd.py](02_lih_uccsd.py) | LiH with UCCSD ansatz | 4 | Chemistry-motivated ansatz, CASCI |
-| 3 | [03_gpu_vs_cpu.py](03_gpu_vs_cpu.py) | GPU acceleration benchmark | 4 | Backend switching, timing, Maestro speedup |
+| 3 | [03_gpu_vs_cpu.py](03_gpu_vs_cpu.py) | GPU acceleration benchmark | 4 | Backend switching, timing, Qoro speedup |
 
 ### Simulation Backends
 
@@ -64,16 +64,16 @@ python 06_nevpt2.py --gpu
 
 ### 🟢 MPS-Recommended Examples
 
-Examples marked with 🟢 benefit from Maestro's **MPS GPU mode** (`simulation="mps"`). MPS shines when:
+Examples marked with 🟢 benefit from Qoro's **MPS GPU mode** (`simulation="mps"`). MPS shines when:
 
 - The active space has **6+ qubits** (3+ spatial orbitals)
 - You need to scale beyond what statevector can handle (~30 qubits)
 - You want to trade a small accuracy loss for much larger systems
 
-To enable MPS on any example, change the `MaestroSolver` config:
+To enable MPS on any example, change the `QoroSolver` config:
 
 ```python
-cas.fcisolver = MaestroSolver(
+cas.fcisolver = QoroSolver(
     simulation="mps",
     mps_bond_dim=64,   # higher = more accurate, slower
     backend="gpu",

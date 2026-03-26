@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Breaking the Triple Bond: N₂ Dissociation with VQE on Maestro
+Breaking the Triple Bond: N₂ Dissociation with VQE on Qoro
 ==============================================================
 
 This script computes the potential energy surface of N₂ along the N–N
-bond stretch using VQE on Maestro. It demonstrates:
+bond stretch using VQE on Qoro. It demonstrates:
 
   1. AVAS-based active-space auto-selection of the 2p valence orbitals
   2. UCCSD-VQE with the Adam optimiser (parameter-shift gradients)
@@ -51,7 +51,7 @@ from pathlib import Path
 import numpy as np
 from pyscf import gto, scf, mcscf, fci
 
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -131,7 +131,7 @@ def run_vqe_point(
     cas = mcscf.CASCI(mf, norb, nelec)
     cas.verbose = 0
 
-    solver = MaestroSolver(
+    solver = QoroSolver(
         ansatz=ansatz,
         optimizer=optimizer,
         learning_rate=learning_rate,
@@ -184,7 +184,7 @@ def run_pes_scan(args):
         backends = ["cpu"]
 
     print("=" * 78)
-    print("  N₂ DISSOCIATION — VQE ON MAESTRO")
+    print("  N₂ DISSOCIATION — VQE ON QORO")
     print(f"  Basis: {args.basis}  |  CAS({nelec},{norb})  |  {n_qubits} qubits")
     if args.taper:
         print(f"  Z₂ tapering: ON (saves ~2 qubits → {n_qubits - 2})")
@@ -324,7 +324,7 @@ PRESETS = {
 
 def main():
     parser = argparse.ArgumentParser(
-        description="N₂ Dissociation PES — VQE benchmark on Maestro",
+        description="N₂ Dissociation PES — VQE benchmark on Qoro",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Presets:

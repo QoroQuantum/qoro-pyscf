@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Backend configuration for Maestro quantum simulation.
+Backend configuration for Qoro quantum simulation.
 
 Handles GPU/CPU detection, simulation type selection (Statevector / MPS),
 license key management, and provides a portable configuration object used
@@ -37,7 +37,7 @@ class SimulationMode(str, Enum):
 @dataclass
 class BackendConfig:
     """
-    Configuration for the Maestro simulation backend.
+    Configuration for the Qoro simulation backend.
 
     Attributes
     ----------
@@ -58,15 +58,15 @@ class BackendConfig:
 
 def set_license_key(key: str) -> None:
     """
-    Set the Maestro GPU license key.
+    Set the Qoro GPU license key.
 
     The key is stored as the ``MAESTRO_LICENSE_KEY`` environment variable,
-    which Maestro reads automatically during ``init_gpu()``.
+    which Qoro reads automatically during ``init_gpu()``.
 
     Parameters
     ----------
     key : str
-        Your Maestro license key (e.g. ``"XXXX-XXXX-XXXX-XXXX"``).
+        Your Qoro license key (e.g. ``"XXXX-XXXX-XXXX-XXXX"``).
 
     Notes
     -----
@@ -77,8 +77,8 @@ def set_license_key(key: str) -> None:
 
     Examples
     --------
-    >>> from qoro_maestro_pyscf import configure_backend
-    >>> from qoro_maestro_pyscf.backends import set_license_key
+    >>> from qoro_pyscf import configure_backend
+    >>> from qoro_pyscf.backends import set_license_key
     >>> set_license_key("XXXX-XXXX-XXXX-XXXX")
     >>> cfg = configure_backend()  # Will now use GPU with your license
     """
@@ -92,7 +92,7 @@ def configure_backend(
     license_key: Optional[str] = None,
 ) -> BackendConfig:
     """
-    Create a Maestro backend configuration with automatic fallback.
+    Create a Qoro backend configuration with automatic fallback.
 
     Parameters
     ----------
@@ -106,14 +106,14 @@ def configure_backend(
         Bond dimension for MPS simulation. Ignored for statevector mode.
         Higher values = more accurate but slower. Default: 64.
     license_key : str or None
-        Maestro GPU license key. If provided, sets the ``MAESTRO_LICENSE_KEY``
+        Qoro GPU license key. If provided, sets the ``MAESTRO_LICENSE_KEY``
         environment variable before GPU initialisation. Can also be set via
         :func:`set_license_key` or directly as an env var.
 
     Returns
     -------
     BackendConfig
-        Configured backend ready for use with Maestro.
+        Configured backend ready for use with Qoro.
 
     Examples
     --------

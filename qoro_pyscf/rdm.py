@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """
-Reduced Density Matrix (RDM) reconstruction from Maestro circuits.
+Reduced Density Matrix (RDM) reconstruction from Qoro circuits.
 
 Reconstructs 1-RDM and 2-RDM from the optimised VQE circuit by measuring
-the Jordan-Wigner-mapped creation/annihilation operator pairs via Maestro's
+the Jordan-Wigner-mapped creation/annihilation operator pairs via Qoro's
 expectation value estimation.
 
 This is the critical module that enables CASSCF orbital optimisation — PySCF
@@ -31,7 +31,7 @@ In second quantisation, the 1-RDM and 2-RDM elements are:
 
 Under the Jordan-Wigner transformation, each ``a†_p a_q`` maps to a sum of
 Pauli strings (typically 2 terms for p≠q, 1 term for p=q). We evaluate these
-expectation values on the Maestro circuit and reconstruct the RDM tensors.
+expectation values on the Qoro circuit and reconstruct the RDM tensors.
 """
 
 from __future__ import annotations
@@ -45,8 +45,8 @@ if TYPE_CHECKING:
 
 from openfermion import FermionOperator, jordan_wigner
 
-from qoro_maestro_pyscf.backends import BackendConfig
-from qoro_maestro_pyscf.expectation import evaluate_expectation
+from qoro_pyscf.backends import BackendConfig
+from qoro_pyscf.expectation import evaluate_expectation
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ def compute_1rdm_spinorbital(
     n_qubits : int
         Number of spin-orbitals (qubits).
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -143,7 +143,7 @@ def compute_2rdm_spinorbital(
     n_qubits : int
         Number of spin-orbitals (qubits).
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -248,7 +248,7 @@ def _evaluate_qubit_operator(
     """
     Evaluate a single OpenFermion QubitOperator on the circuit.
 
-    Decomposes into Pauli terms and evaluates each via Maestro.
+    Decomposes into Pauli terms and evaluates each via Qoro.
     """
     result = 0.0 + 0.0j
 

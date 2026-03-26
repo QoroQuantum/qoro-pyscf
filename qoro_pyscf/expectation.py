@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Expectation value engine using Maestro's native QuantumCircuit.estimate().
+Expectation value engine using Qoro's native QuantumCircuit.estimate().
 
 Wraps circuit evaluation so that the rest of the library can call a single
 function without worrying about backend configuration details.
@@ -28,7 +28,7 @@ import numpy as np
 if TYPE_CHECKING:
     from maestro.circuits import QuantumCircuit
 
-from qoro_maestro_pyscf.backends import BackendConfig
+from qoro_pyscf.backends import BackendConfig
 
 
 def evaluate_expectation(
@@ -37,10 +37,10 @@ def evaluate_expectation(
     config: BackendConfig,
 ) -> np.ndarray:
     """
-    Evaluate expectation values of Pauli observables on a Maestro circuit.
+    Evaluate expectation values of Pauli observables on a Qoro circuit.
 
     All observables are batched into a single ``qc.estimate()`` call, so
-    Maestro evaluates them in one statevector (or MPS) pass on the GPU.
+    Qoro evaluates them in one statevector (or MPS) pass on the GPU.
 
     Parameters
     ----------
@@ -49,7 +49,7 @@ def evaluate_expectation(
     pauli_labels : list[str]
         Pauli observable strings, e.g. ``["ZZII", "IXYZ"]``.
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -93,7 +93,7 @@ def compute_energy(
     pauli_coeffs : np.ndarray
         Complex coefficients for each Pauli term.
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -113,14 +113,14 @@ def get_state_probabilities(
     """
     Get the full probability distribution |⟨k|ψ⟩|² for each computational basis state.
 
-    Wraps Maestro's native ``get_probabilities()`` with the configured backend.
+    Wraps Qoro's native ``get_probabilities()`` with the configured backend.
 
     Parameters
     ----------
     circuit : QuantumCircuit
         The prepared circuit.
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -160,7 +160,7 @@ def compute_state_fidelity(
     circuit_a, circuit_b : QuantumCircuit
         The two circuits to compare.
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------
@@ -183,7 +183,7 @@ def compute_overlap(
     Compute the quantum state overlap |⟨ψ_a|ψ_b⟩|² between two circuits.
 
     This is the **canonical** function for VQD overlap penalties.  It
-    automatically uses the best available Maestro API:
+    automatically uses the best available Qoro API:
 
     1. **``maestro.inner_product(c1, c2, ...)``** — exact, native, and
        scales to large qubit counts (e.g. MPS inner product).  Used when
@@ -198,7 +198,7 @@ def compute_overlap(
     circuit_a, circuit_b : QuantumCircuit
         The two ansatz circuits whose states will be compared.
     config : BackendConfig
-        Maestro backend configuration (simulator type, simulation mode,
+        Qoro backend configuration (simulator type, simulation mode,
         MPS bond dimension, etc.).
 
     Returns
@@ -214,7 +214,7 @@ def compute_overlap(
     import maestro
 
     if hasattr(maestro, "inner_product"):
-        # --- Exact path: native Maestro inner product ---
+        # --- Exact path: native Qoro inner product ---
         kwargs: dict = {
             "simulator_type": config.simulator_type,
             "simulation_type": config.simulation_type,
@@ -246,7 +246,7 @@ def compute_statevector_fidelity(
     circuit_a, circuit_b : QuantumCircuit
         The two circuits to compare.
     config : BackendConfig
-        Maestro backend configuration.
+        Qoro backend configuration.
 
     Returns
     -------

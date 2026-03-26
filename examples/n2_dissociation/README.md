@@ -1,6 +1,6 @@
 # Breaking the Triple Bond: GPU-Accelerated Quantum Chemistry for N₂ Dissociation
 
-> **TL;DR** — We use UCCSD-VQE on [Maestro GPU](https://qoroquantum.de) to compute
+> **TL;DR** — We use UCCSD-VQE on [Qoro GPU](https://qoroquantum.de) to compute
 > the potential energy surface of N₂ at 20 qubits. CCSD(T) fails in the
 > stretching region; our GPU-accelerated VQE matches exact FCI while running
 > **X× faster** than CPU simulation.
@@ -20,12 +20,12 @@ This is where CCSD(T) — the "gold standard" of quantum chemistry — **catastr
 The plot tells the story:
 - **RHF** (grey) — qualitatively wrong at all distances
 - **CCSD(T)** (red) — accurate near equilibrium, then **diverges or crashes**
-- **VQE on Maestro GPU** (green circles) — tracks the exact FCI curve across the entire dissociation range
+- **VQE on Qoro GPU** (green circles) — tracks the exact FCI curve across the entire dissociation range
 - **Exact FCI** (black) — the reference we're trying to match
 
 ---
 
-## The Solution: VQE with Maestro GPU
+## The Solution: VQE with Qoro GPU
 
 We use the UCCSD (Unitary Coupled Cluster Singles and Doubles) ansatz, which naturally captures the multiconfigurational physics because it's built from fermionic excitation operators that preserve the correct symmetries.
 
@@ -33,29 +33,29 @@ We use the UCCSD (Unitary Coupled Cluster Singles and Doubles) ansatz, which nat
 
 ```python
 from pyscf import gto, scf, mcscf
-from qoro_maestro_pyscf import MaestroSolver
+from qoro_pyscf import QoroSolver
 
 mol = gto.M(atom=f"N 0 0 0; N 0 0 {r}", basis="cc-pvdz")
 mf = scf.RHF(mol).run()
 
 cas = mcscf.CASCI(mf, 10, 10)  # CAS(10,10) → 20 qubits
-cas.fcisolver = MaestroSolver(
+cas.fcisolver = QoroSolver(
     ansatz="uccsd",
     optimizer="adam",        # Adam with parameter-shift gradients
     learning_rate=0.01,
-    backend="gpu",           # ← Maestro GPU
+    backend="gpu",           # ← Qoro GPU
     maxiter=300,
 )
 cas.kernel()
 ```
 
-That's it. No Qiskit. No IBM. **PySCF handles the chemistry, Maestro handles the quantum simulation.**
+That's it. No Qiskit. No IBM. **PySCF handles the chemistry, Qoro handles the quantum simulation.**
 
 ### What's happening under the hood
 
 1. **PySCF** computes molecular integrals for the CAS(10,10) active space
 2. **OpenFermion** maps the fermionic Hamiltonian to 20 qubits (Jordan-Wigner)
-3. **Maestro GPU** runs the UCCSD circuit with exact statevector simulation
+3. **Qoro GPU** runs the UCCSD circuit with exact statevector simulation
 4. **Adam optimizer** uses the parameter-shift rule for exact quantum gradients
 5. Repeat until converged — return the energy to PySCF
 
@@ -94,7 +94,7 @@ Key observation: the error is **largest near equilibrium** (where the ansatz has
 
 ## Features Used
 
-This example showcases several features of `qoro-maestro-pyscf`:
+This example showcases several features of `qoro-pyscf`:
 
 | Feature | What it does |
 |---------|-------------|
@@ -139,7 +139,7 @@ If you're doing quantum chemistry research involving:
 - **Variational quantum algorithms** (VQE, VQD, ADAPT-VQE)
 - **Algorithm benchmarking** (ansatz comparison, optimizer comparison)
 
-Then you need fast, accurate quantum simulation. **Maestro GPU** gives you:
+Then you need fast, accurate quantum simulation. **Qoro GPU** gives you:
 
 - ✅ **10-50× speedup** over CPU at 20+ qubits
 - ✅ **Exact statevector** simulation (no sampling noise)
@@ -147,7 +147,7 @@ Then you need fast, accurate quantum simulation. **Maestro GPU** gives you:
 - ✅ **Drop-in PySCF integration** — no new framework to learn
 - ✅ **Adam + parameter-shift gradients** for efficient optimization
 
-**[Get a Maestro GPU license →](https://qoroquantum.de)**
+**[Get a Qoro GPU license →](https://qoroquantum.de)**
 
 ---
 
