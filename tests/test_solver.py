@@ -126,6 +126,68 @@ class TestSolverFieldsUnit:
         assert solver.learning_rate == 0.02
 
 
+class TestRotosolveUnit:
+    """Test Rotosolve analytical optimizer (no Maestro required)."""
+
+    def test_rotosolve_step_finds_sinusoidal_minimum(self):
+        """rotosolve_step should find exact minimum of a + R·cos(θ - φ)."""
+        from qoro_pyscf.rotosolve import rotosolve_step
+
+        # Cost function: E(θ) = 2 + 3·cos(θ - 0.7)
+        # Minimum at θ = 0.7 + π, with E_min = 2 - 3 = -1
+        def cost(params):
+            return 2.0 + 3.0 * np.cos(params[0] - 0.7)
+
+        params = np.array([0.0])
+        params, energy = rotosolve_step(cost, params, 0)
+        assert energy == pytest.approx(-1.0, abs=1e-10)
+        # Optimal angle: 0.7 + π (wrapped to [-π, π])
+        expected = (0.7 + np.pi + np.pi) % (2 * np.pi) - np.pi
+        assert params[0] == pytest.approx(expected, abs=1e-10)
+
+    def test_rotosolve_step_multi_param(self):
+        """rotosolve_step on one index doesn't change others."""
+        from qoro_pyscf.rotosolve import rotosolve_step
+
+        def cost(params):
+            return np.cos(params[0] - 1.0) + np.cos(params[1] - 2.0)
+
+        params = np.array([0.0, 0.0])
+        params, _ = rotosolve_step(cost, params, 0)
+        # Index 1 should remain 0
+        assert params[1] == 0.0
+
+    def test_rotosolve_sweep_converges(self):
+        """rotosolve_sweep should converge on multi-parameter sinusoidal cost."""
+        from qoro_pyscf.rotosolve import rotosolve_sweep
+
+        # E(θ₁, θ₂) = cos(θ₁ - 1) + cos(θ₂ - 2)
+        # Minimum: θ₁ = 1+π, θ₂ = 2+π, E_min = -2
+        def cost(params):
+            return np.cos(params[0] - 1.0) + np.cos(params[1] - 2.0)
+
+        params = np.array([0.0, 0.0])
+        opt_params, energy, history, converged = rotosolve_sweep(
+            cost, params, max_sweeps=10, tol=1e-12,
+        )
+        assert energy == pytest.approx(-2.0, abs=1e-10)
+        assert converged is True
+        # Should converge in 1-2 sweeps (parameters are independent)
+        assert len(history) <= 4
+
+    def test_rotosolve_step_freq2_period_pi(self):
+        """rotosolve_step with freq=2 handles period-π sinusoids (double excitations)."""
+        from qoro_pyscf.rotosolve import rotosolve_step
+
+        # Cost function with period π: E(θ) = 2 + 3·cos(2θ - 1.4)
+        # Minimum at 2θ = 1.4 + π → θ = (1.4 + π) / 2, E_min = -1
+        def cost(params):
+            return 2.0 + 3.0 * np.cos(2.0 * params[0] - 1.4)
+
+        params = np.array([0.0])
+        params, energy = rotosolve_step(cost, params, 0, freq=2)
+        assert energy == pytest.approx(-1.0, abs=1e-10)
+
 class TestAdamConvergenceUnit:
     """Test Adam optimizer logic (no Maestro required).
 

@@ -208,8 +208,9 @@ def compute_overlap(
 
     Notes
     -----
-    Once ``maestro.inner_product`` is available, this function will use
-    it automatically with no changes required at call sites.
+    When ``maestro >= 0.2.7`` is installed, this function uses the native
+    ``maestro.inner_product`` for exact overlap computation.  Older wheels
+    fall back to probability-based Bhattacharyya fidelity.
     """
     import maestro
 
@@ -222,11 +223,12 @@ def compute_overlap(
         if config.mps_bond_dim is not None:
             kwargs["max_bond_dimension"] = config.mps_bond_dim
         result = maestro.inner_product(circuit_a, circuit_b, **kwargs)
-        # inner_product returns |⟨ψ_a|ψ_b⟩|² directly (real, non-negative)
-        return float(abs(result))
+        # inner_product returns ⟨ψ_a|ψ_b⟩ as a complex number;
+        # square the magnitude to get the overlap |⟨ψ_a|ψ_b⟩|²
+        return float(abs(result) ** 2)
 
     # --- Fallback: Bhattacharyya probability-based fidelity ---
-    # TODO: remove fallback once maestro.inner_product is available in the wheel
+    # Used when maestro < 0.2.7 is installed (no inner_product binding)
     return compute_state_fidelity(circuit_a, circuit_b, config)
 
 

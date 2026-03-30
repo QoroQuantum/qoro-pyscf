@@ -306,7 +306,7 @@ class TestNoGetStateVectorCalls:
         with mock.patch.object(maestro, "inner_product", return_value=sentinel, create=True):
             result = compute_overlap(qc, qc, config)
 
-        assert result == pytest.approx(abs(sentinel))
+        assert result == pytest.approx(abs(sentinel) ** 2)
 
     @pytest.mark.skipif(not _has_maestro(), reason="Requires maestro native library")
     def test_get_final_statevector_raises_not_implemented(self):

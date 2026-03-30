@@ -201,6 +201,7 @@ class QoroSolver:
     adapt_threshold: float = 1e-3
     adapt_max_ops: int = 50
     adapt_pool: str = "sd"
+    adapt_greedy: bool = False
 
     # --- Tapering ---
     taper: bool = False
@@ -365,6 +366,7 @@ class QoroSolver:
                 optimizer=self.optimizer,
                 maxiter_per_step=self.maxiter,
                 verbose=self.verbose,
+                greedy=self.adapt_greedy,
             )
 
             self.optimal_params = adapt_result["params"]
@@ -388,6 +390,12 @@ class QoroSolver:
         self._rdm2s_cache = None
         self.energy_history = []
         iteration = [0]
+
+        # --- Progress-tracking state ---
+        _best_energy = [float("inf")]
+        _best_iter = [0]
+        _prev_energy = [None]
+        _t_start = time.perf_counter()
 
         # --- Cost function ---
         def cost(params):
@@ -424,8 +432,27 @@ class QoroSolver:
 
             self.energy_history.append(energy)
             iteration[0] += 1
-            if self.verbose and (iteration[0] % 20 == 0 or iteration[0] == 1):
-                print(f"    iter {iteration[0]:4d}  E = {energy:+.10f}  Ha")
+
+            # Update best-energy tracking
+            if energy < _best_energy[0]:
+                _best_energy[0] = energy
+                _best_iter[0] = iteration[0]
+
+            if self.verbose and (iteration[0] % 10 == 0 or iteration[0] == 1):
+                elapsed = time.perf_counter() - _t_start
+                delta_str = ""
+                if _prev_energy[0] is not None:
+                    delta = energy - _prev_energy[0]
+                    delta_str = f"  ΔE = {delta:+.6f}"
+                stagnation = iteration[0] - _best_iter[0]
+                stag_str = f"  ⚠ STAGNATED ({stagnation} evals)" if stagnation >= 50 else ""
+                print(
+                    f"    iter {iteration[0]:4d}  E = {energy:+.10f}  Ha"
+                    f"{delta_str}  best = {_best_energy[0]:+.10f}"
+                    f"  [{elapsed:.1f}s]{stag_str}",
+                    flush=True,
+                )
+            _prev_energy[0] = energy
 
             if self.callback is not None:
                 self.callback(iteration[0], energy, params)
@@ -496,6 +523,23 @@ class QoroSolver:
             self.converged = True
             self.optimal_params = best_params
             e_vqe = best_energy
+        elif self.optimizer.upper() == "ROTOSOLVE":
+            # --- Rotosolve: analytical single-parameter optimiser ---
+            from qoro_pyscf.rotosolve import rotosolve_sweep
+
+            t0 = time.perf_counter()
+            opt_params, e_vqe, rs_history, rs_converged = rotosolve_sweep(
+                cost, x0,
+                max_sweeps=self.maxiter,
+                tol=1e-8,
+                verbose=self.verbose,
+                callback=self.callback,
+            )
+            self.vqe_time = time.perf_counter() - t0
+            self.converged = rs_converged
+            self.optimal_params = opt_params
+            # Extend energy_history with per-sweep energies
+            self.energy_history.extend(rs_history)
         else:
             # --- SciPy optimiser ---
             opts: dict = {"maxiter": self.maxiter}

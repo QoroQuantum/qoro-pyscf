@@ -126,6 +126,7 @@ def run_adapt_vqe(
     optimizer: str = "COBYLA",
     maxiter_per_step: int = 100,
     verbose: bool = False,
+    greedy: bool = False,
 ) -> dict:
     """
     Run ADAPT-VQE: adaptively grow the circuit.
@@ -151,11 +152,16 @@ def run_adapt_vqe(
     max_operators : int
         Maximum number of operators to add.
     optimizer : str
-        SciPy optimizer for re-optimization.
+        Optimizer for re-optimization. Use ``"ROTOSOLVE"`` for analytical
+        optimization, or any SciPy method.
     maxiter_per_step : int
-        Max VQE iterations per ADAPT step.
+        Max VQE iterations per ADAPT step (ignored for greedy Rotosolve).
     verbose : bool
         Print progress.
+    greedy : bool
+        If True, only optimize the last-added parameter at each step
+        using Rotosolve (3 circuit evaluations). Much faster but less
+        accurate than re-optimizing all parameters.
 
     Returns
     -------
@@ -163,11 +169,15 @@ def run_adapt_vqe(
         Keys: energy, params, selected_ops, converged, n_operators,
         energy_history, circuit.
     """
+    import time
+
     op_pool = build_operator_pool(n_qubits, nelec, pool)
 
     if verbose:
         print(f"  [ADAPT-VQE] Operator pool size: {len(op_pool)}")
         print(f"  [ADAPT-VQE] Gradient threshold: {gradient_threshold}")
+        mode_str = "greedy (last-param only)" if greedy else "full re-optimization"
+        print(f"  [ADAPT-VQE] Optimization mode: {mode_str}")
 
     selected_ops: list[Operator] = []
     params = np.array([], dtype=float)
@@ -183,11 +193,28 @@ def run_adapt_vqe(
     if verbose:
         print(f"  [ADAPT-VQE] HF energy: {current_energy:+.10f}")
 
+    t_start = time.perf_counter()
+
+    selected_indices: set[int] = set()  # track pool indices already used
+
     for step in range(max_operators):
         # --- Screen all operators: compute gradients via finite differences ---
         gradients = np.zeros(len(op_pool))
+        n_pool = len(op_pool)
+
+        if verbose:
+            print(
+                f"  [ADAPT-VQE] Screening {n_pool} operators...",
+                end="", flush=True,
+            )
 
         for idx, op in enumerate(op_pool):
+            # In greedy mode, skip operators already in the circuit —
+            # re-adding the same operator with only last-param optimisation
+            # creates redundancy.
+            if greedy and idx in selected_indices:
+                continue
+
             trial_ops = selected_ops + [op]
 
             # Forward: current circuit + op(+ε)
@@ -206,15 +233,23 @@ def run_adapt_vqe(
 
             gradients[idx] = (e_fwd - e_bwd) / (2.0 * _EPSILON)
 
+            if verbose and (idx + 1) % 100 == 0:
+                print(f" {idx + 1}/{n_pool}", end="", flush=True)
+
+        if verbose:
+            print(" done", flush=True)
+
         # --- Select operator with largest gradient ---
         max_idx = np.argmax(np.abs(gradients))
         max_grad = np.abs(gradients[max_idx])
 
         if verbose:
+            elapsed = time.perf_counter() - t_start
             print(
                 f"  [ADAPT-VQE] Step {step + 1}: "
                 f"max |grad| = {max_grad:.6f}  "
-                f"(op {max_idx}: {op_pool[max_idx].kind} {op_pool[max_idx].indices})"
+                f"(op {max_idx}: {op_pool[max_idx].kind} "
+                f"{op_pool[max_idx].indices})  [{elapsed:.1f}s]"
             )
 
         # --- Check convergence ---
@@ -225,28 +260,56 @@ def run_adapt_vqe(
 
         # --- Add the selected operator ---
         selected_ops.append(op_pool[max_idx])
+        selected_indices.add(max_idx)
         params = np.append(params, 0.0)  # initial angle for new operator
 
-        # --- Re-optimise all parameters ---
+        # --- Optimise parameters ---
         def cost(p):
             qc = _build_adapt_circuit(n_qubits, nelec, selected_ops, p)
             return compute_energy(
                 qc, identity_offset, pauli_labels, pauli_coeffs, config
             )
 
-        opts = {"maxiter": maxiter_per_step}
-        if optimizer.upper() == "COBYLA":
-            opts["rhobeg"] = 0.3
+        if greedy:
+            # Greedy: only optimize the last-added parameter via Rotosolve.
+            # 3 circuit evaluations per step.
+            # Frequency depends on gate type: doubles use ry(2θ) → freq=2,
+            # singles use ry(θ) → freq=1.
+            from qoro_pyscf.rotosolve import rotosolve_step
 
-        opt = minimize(cost, params, method=optimizer, options=opts)
-        params = opt.x
-        current_energy = opt.fun
+            last_op = selected_ops[-1]
+            freq = 2 if last_op.kind == "double" else 1
+            params, current_energy = rotosolve_step(
+                cost, params, len(params) - 1, freq=freq,
+            )
+        elif optimizer.upper() == "ROTOSOLVE":
+            # Full Rotosolve sweep over all parameters
+            from qoro_pyscf.rotosolve import rotosolve_sweep
+
+            params, current_energy, _, _ = rotosolve_sweep(
+                cost, params,
+                max_sweeps=maxiter_per_step,
+                tol=1e-8,
+                verbose=False,
+            )
+        else:
+            # SciPy optimizer
+            opts = {"maxiter": maxiter_per_step}
+            if optimizer.upper() == "COBYLA":
+                opts["rhobeg"] = 0.3
+
+            opt = minimize(cost, params, method=optimizer, options=opts)
+            params = opt.x
+            current_energy = opt.fun
+
         energy_history.append(current_energy)
 
         if verbose:
+            elapsed = time.perf_counter() - t_start
             print(
                 f"  [ADAPT-VQE]   → E = {current_energy:+.10f}  "
                 f"({len(selected_ops)} ops, {len(params)} params)"
+                f"  [{elapsed:.1f}s]"
             )
 
     # --- Build final circuit ---
@@ -267,3 +330,4 @@ def run_adapt_vqe(
         "energy_history": energy_history,
         "circuit": final_circuit,
     }
+
