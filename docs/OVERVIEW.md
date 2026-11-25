@@ -1,15 +1,15 @@
 # qoro-pyscf — Library Overview
 
 `qoro-pyscf` holds PySCF tools that divi does not ship yet. Circuits,
-Hamiltonians, RDMs, ansätze and the ground-state VQE solver
-(`divi.qprog.algorithms.VQEFCISolver`) come from divi; this package builds on
+Hamiltonians, RDMs, ansätze, the ground-state VQE solver
+(`divi.qprog.algorithms.VQEFCISolver`) and the QSCI solver
+(`divi.qprog.ensembles.qsci.QSCISolver`) come from divi; this package builds on
 them.
 
 ## Modules
 
 | Module | Responsibility |
 |--------|---------------|
-| `qsci_solver.py` | `QSCISolver`: PySCF `fcisolver` that samples a divi VQE and diagonalises in the selected determinants (PySCF selected CI). |
 | `adapt.py` | ADAPT-VQE on Maestro circuits, and `build_pauli_terms` to feed it a divi Hamiltonian. |
 | `rotosolve.py` | Rotosolve steps and sweeps, with per-parameter frequencies. |
 | `adam.py` | `AdamOptimizer`, a divi `Optimizer`. |

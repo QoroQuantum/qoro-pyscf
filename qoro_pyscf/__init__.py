@@ -15,10 +15,11 @@
 """
 qoro-pyscf
 ==========
-PySCF tools not yet in divi: VQD and QSCI active-space solvers, ADAPT-VQE,
-Rotosolve, an Adam optimizer, active-space selection, properties and qubit
-tapering. Ground-state VQE solvers live in divi
-(:class:`divi.qprog.algorithms.VQEFCISolver`).
+PySCF tools not yet in divi: a VQD active-space solver, ADAPT-VQE, Rotosolve,
+an Adam optimizer, active-space selection, properties and qubit tapering.
+Ground-state VQE and QSCI solvers live in divi
+(:class:`divi.qprog.algorithms.VQEFCISolver`,
+:class:`divi.qprog.ensembles.qsci.QSCISolver`).
 """
 
 from qoro_pyscf.active_space import (
@@ -33,7 +34,6 @@ from qoro_pyscf.properties import (
     compute_mulliken_spin_population,
     compute_natural_orbitals,
 )
-from qoro_pyscf.qsci_solver import QSCISolver
 from qoro_pyscf.rotosolve import rotosolve_step, rotosolve_sweep
 from qoro_pyscf.tapering import TaperingResult, taper_hamiltonian
 from qoro_pyscf.vqd_solver import VQDSolver
@@ -41,7 +41,6 @@ from qoro_pyscf.vqd_solver import VQDSolver
 __all__ = [
     "AdamOptimizer",
     "BackendConfig",
-    "QSCISolver",
     "TaperingResult",
     "VQDSolver",
     "build_pauli_terms",

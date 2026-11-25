@@ -3,7 +3,8 @@
 Worked examples for `qoro-pyscf` on top of divi. They run on CPU; the GPU ones
 need a Maestro GPU licence (`MAESTRO_LICENSE_KEY`). Ground-state VQE as a PySCF
 solver, CASSCF, UpCCD, QCC entanglers, N₂ dissociation and the ethylene UV-vis
-spectrum are covered by divi's own tutorials (`divi/tutorials/chemistry/`).
+spectrum, and QSCI on N₂ dissociation, are covered by divi's own tutorials
+(`divi/tutorials/chemistry/`).
 
 ```bash
 uv sync
@@ -17,7 +18,6 @@ uv run python examples/11_adapt_vqe.py
 | [08_geometry_opt.py](08_geometry_opt.py) | H₂ bond length from VQE nuclear gradients | 4 |
 | [10_gpu_benchmark.py](10_gpu_benchmark.py) | CPU against GPU on H₄–H₁₀ chains with UpCCD | 8–20 |
 | [11_adapt_vqe.py](11_adapt_vqe.py) | ADAPT-VQE against UCCSD on LiH | 8 |
-| [14_qsci.py](14_qsci.py) | QSCI on N₂ dissociation, 6-31G CAS(6,8) | 16 |
 | [butyronitrile_dissociation/](butyronitrile_dissociation/) | C≡N dissociation in three active-space stages | 8–28 |
 
 Not yet ported to divi (they still import the removed `QoroSolver`):

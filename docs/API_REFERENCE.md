@@ -1,17 +1,5 @@
 # API Reference
 
-## `QSCISolver(inner_solver, n_samples=500, probability_threshold=1e-8)`
-
-PySCF `fcisolver`. `inner_solver` is a divi `VQEFCISolver`; its trained VQE is
-sampled with `sample_solution()`, bitstrings with the wrong electron count per
-spin or at or below `probability_threshold` are dropped, the `n_samples` most
-probable are kept, and PySCF's `selected_ci.kernel_fixed_space` diagonalises in
-their alpha × beta strings.
-
-After `kernel`: `vqe_energy`, `qsci_energy`, `n_determinants`, `qsci_time`,
-and `converged` (the inner VQE's). `approx_kernel` returns the last result. RDM methods (`make_rdm1`, `make_rdm1s`, `make_rdm12`,
-`make_rdm12s`, `spin_square`) use the selected-CI eigenvector.
-
 ## `AdamOptimizer(learning_rate=0.01, grad_shift=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
 
 A divi `Optimizer`. Each iteration evaluates the `2 n` central

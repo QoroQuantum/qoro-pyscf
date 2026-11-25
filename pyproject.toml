@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qoro-pyscf"
 version = "0.6.1"
-description = "PySCF tools on divi: QSCI, ADAPT-VQE, Rotosolve, Adam, active spaces, properties and tapering"
+description = "PySCF tools on divi: ADAPT-VQE, Rotosolve, Adam, active spaces, properties and tapering"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11,<3.15"
