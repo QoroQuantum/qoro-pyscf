@@ -16,18 +16,25 @@
 Molecular property computation from VQE results.
 
 Computes dipole moments, natural orbital occupations, and other one-electron
-properties from the RDMs produced by QoroSolver.
+properties from active-space RDMs.
 """
 
-from __future__ import annotations
-
 import numpy as np
+
+
+def _embed_active(matrix: np.ndarray, nmo: int, ncore: int) -> np.ndarray:
+    """An ``(nmo, nmo)`` MO matrix holding ``matrix`` in the active block."""
+    norb = matrix.shape[0]
+    full = np.zeros((nmo, nmo))
+    full[ncore : ncore + norb, ncore : ncore + norb] = matrix
+    return full
 
 
 def compute_dipole_moment(
     mol,
     mo_coeff: np.ndarray,
     rdm1: np.ndarray,
+    ncore: int,
 ) -> tuple[np.ndarray, float]:
     """
     Compute the electronic + nuclear dipole moment.
@@ -43,6 +50,8 @@ def compute_dipole_moment(
         MO coefficient matrix (e.g. from ``cas.mo_coeff``).
     rdm1 : np.ndarray, shape (norb, norb)
         Spin-traced 1-RDM in the active-space MO basis.
+    ncore : int
+        Doubly occupied core orbitals before the active ones (``cas.ncore``).
 
     Returns
     -------
@@ -58,22 +67,8 @@ def compute_dipole_moment(
     coords = mol.atom_coords()
     nuc_dipole = np.einsum("i,ix->x", charges, coords)
 
-    # Electronic contribution: expand active-space RDM to full AO basis
-    norb = rdm1.shape[0]
-    nmo = mo_coeff.shape[1]
-
-    # Build full MO 1-RDM (core + active)
-    ncore = (nmo - norb) // 2 if nmo > norb else 0
-    full_rdm1_mo = np.zeros((nmo, nmo))
-
-    # Core orbitals are doubly occupied
-    for i in range(ncore):
-        full_rdm1_mo[i, i] = 2.0
-
-    # Active space
-    full_rdm1_mo[ncore:ncore + norb, ncore:ncore + norb] = rdm1
-
-    # Transform to AO basis
+    full_rdm1_mo = _embed_active(rdm1, mo_coeff.shape[1], ncore)
+    full_rdm1_mo[np.arange(ncore), np.arange(ncore)] = 2.0
     rdm1_ao = mo_coeff @ full_rdm1_mo @ mo_coeff.T
 
     # Dipole integrals in AO basis
@@ -121,6 +116,7 @@ def compute_mulliken_spin_population(
     mo_coeff: np.ndarray,
     rdm1_a: np.ndarray,
     rdm1_b: np.ndarray,
+    ncore: int,
 ) -> np.ndarray:
     """
     Compute Mulliken spin population on each atom.
@@ -133,20 +129,15 @@ def compute_mulliken_spin_population(
         MO coefficient matrix.
     rdm1_a, rdm1_b : np.ndarray
         Alpha and beta 1-RDMs in the active-space MO basis.
+    ncore : int
+        Doubly occupied core orbitals before the active ones (``cas.ncore``).
 
     Returns
     -------
     spin_pop : np.ndarray, shape (natom,)
         Spin population (N_alpha - N_beta) on each atom.
     """
-    spin_rdm1 = rdm1_a - rdm1_b
-    norb = spin_rdm1.shape[0]
-    nmo = mo_coeff.shape[1]
-    ncore = (nmo - norb) // 2 if nmo > norb else 0
-
-    # Spin RDM in AO basis (core contributes zero net spin)
-    full_spin_mo = np.zeros((nmo, nmo))
-    full_spin_mo[ncore:ncore + norb, ncore:ncore + norb] = spin_rdm1
+    full_spin_mo = _embed_active(rdm1_a - rdm1_b, mo_coeff.shape[1], ncore)
     spin_ao = mo_coeff @ full_spin_mo @ mo_coeff.T
 
     # Overlap matrix

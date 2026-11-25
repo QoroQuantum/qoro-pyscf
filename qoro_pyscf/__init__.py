@@ -14,70 +14,47 @@
 
 """
 qoro-pyscf
-==================
-PySCF integration plugin for the Maestro quantum simulator by Qoro Quantum.
-
-Run VQE calculations within PySCF's CASCI/CASSCF framework — works on
-CPU out of the box, with optional GPU acceleration for speed.
-
-Primary API
------------
-.. autosummary::
-    QoroSolver
-    BackendConfig
-    configure_backend
-
-Quick Start
------------
-::
-
-    from pyscf import gto, scf, mcscf
-    from qoro_pyscf import QoroSolver
-
-    mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
-    hf  = scf.RHF(mol).run()
-
-    cas = mcscf.CASCI(hf, 2, 2)
-    cas.fcisolver = QoroSolver(ansatz="uccsd")
-    cas.run()
+==========
+PySCF tools not yet in divi: VQD and QSCI active-space solvers, ADAPT-VQE,
+Rotosolve, an Adam optimizer, active-space selection, properties and qubit
+tapering. Ground-state VQE solvers live in divi
+(:class:`divi.qprog.algorithms.VQEFCISolver`).
 """
 
-from qoro_pyscf.qoro_solver import QoroSolver
-from qoro_pyscf.qsci_solver import QSCISolver
-from qoro_pyscf.vqd_solver import VQDSolver
-from qoro_pyscf.backends import BackendConfig, configure_backend, set_license_key
-from qoro_pyscf.expectation import (
-    get_state_probabilities,
-    compute_state_fidelity,
-    compute_statevector_fidelity,
-    compute_overlap,
-)
-from qoro_pyscf.properties import (
-    compute_dipole_moment,
-    compute_natural_orbitals,
-)
 from qoro_pyscf.active_space import (
     suggest_active_space,
     suggest_active_space_from_mp2,
 )
-from qoro_pyscf.tapering import taper_hamiltonian, TaperingResult
+from qoro_pyscf.adam import AdamOptimizer
+from qoro_pyscf.adapt import build_pauli_terms, run_adapt_vqe
+from qoro_pyscf.backends import BackendConfig, configure_backend, set_license_key
+from qoro_pyscf.properties import (
+    compute_dipole_moment,
+    compute_mulliken_spin_population,
+    compute_natural_orbitals,
+)
+from qoro_pyscf.qsci_solver import QSCISolver
+from qoro_pyscf.rotosolve import rotosolve_step, rotosolve_sweep
+from qoro_pyscf.tapering import TaperingResult, taper_hamiltonian
+from qoro_pyscf.vqd_solver import VQDSolver
 
 __all__ = [
-    "QoroSolver",
-    "QSCISolver",
-    "VQDSolver",
+    "AdamOptimizer",
     "BackendConfig",
-    "configure_backend",
-    "set_license_key",
-    "get_state_probabilities",
-    "compute_state_fidelity",
-    "compute_statevector_fidelity",
-    "compute_overlap",
+    "QSCISolver",
+    "TaperingResult",
+    "VQDSolver",
+    "build_pauli_terms",
     "compute_dipole_moment",
+    "compute_mulliken_spin_population",
     "compute_natural_orbitals",
+    "configure_backend",
+    "rotosolve_step",
+    "rotosolve_sweep",
+    "run_adapt_vqe",
+    "set_license_key",
     "suggest_active_space",
     "suggest_active_space_from_mp2",
     "taper_hamiltonian",
-    "TaperingResult",
 ]
-__version__ = "0.6.0"
+__version__ = "0.6.1"

@@ -22,7 +22,8 @@ that single parameter is exactly sinusoidal:
     E(θ) = a + b·cos(θ) + c·sin(θ)
 
 This allows finding the exact minimum with only **3 circuit evaluations**
-per parameter, rather than hundreds of iterative optimizer steps.
+per parameter. Generators with more eigenvalues give higher harmonics, which
+``order`` covers with ``2 order + 1`` evaluations.
 
 Reference: Ostaszewski et al., Quantum 5, 391 (2021)
            "Structure optimization for parameterized quantum circuits"
@@ -30,9 +31,11 @@ Reference: Ostaszewski et al., Quantum 5, 391 (2021)
 
 from __future__ import annotations
 
-from typing import Callable
+import time
+from collections.abc import Callable, Sequence
 
 import numpy as np
+from scipy.optimize import minimize_scalar
 
 
 def rotosolve_step(
@@ -40,25 +43,32 @@ def rotosolve_step(
     params: np.ndarray,
     index: int,
     freq: int = 1,
+    order: int = 1,
 ) -> tuple[np.ndarray, float]:
     """
-    Analytically optimise a single parameter of a variational circuit.
+    Optimise a single parameter of a variational circuit.
 
-    Evaluates the cost function at three points and fits the sinusoidal
-    model to find the exact minimum.
+    The energy along the parameter is a trigonometric polynomial
+    ``a + sum_{k <= order} b_k cos(k freq θ) + c_k sin(k freq θ)``. It is
+    sampled at ``2 order + 1`` equally spaced points over one period, fitted
+    exactly, and minimised: in closed form for ``order=1``, numerically
+    otherwise.
 
     Parameters
     ----------
     cost_fn : callable
         Cost function mapping parameter vector → scalar energy.
     params : np.ndarray
-        Current parameter vector (will be modified in-place).
+        Current parameter vector; a copy is returned.
     index : int
         Index of the parameter to optimise.
     freq : int
-        Frequency multiplier for the energy landscape.  Use ``freq=1``
+        Base frequency of the energy landscape.  Use ``freq=1``
         when the gate uses ``ry(θ)`` (period 2π), ``freq=2`` when the
         gate uses ``ry(2θ)`` (period π).
+    order : int
+        Highest harmonic of ``freq`` in the landscape, e.g. 2 for a Givens
+        rotation, whose generator has eigenvalues -1, 0 and 1.
 
     Returns
     -------
@@ -69,43 +79,34 @@ def rotosolve_step(
     """
     params = params.copy()
     theta_0 = params[index]
-
-    # The energy landscape is E(θ) = a + b·cos(freq·θ) + c·sin(freq·θ)
-    # with period 2π/freq.  We sample at three points separated by
-    # 2π/(3·freq) in θ-space so that the argument of cos/sin is
-    # separated by 2π/3 — the standard 3-point DFT spacing.
-    ds = 2.0 * np.pi / (3.0 * freq)  # spacing in θ-space
-    shifts = [0.0, ds, 2.0 * ds]
-
+    n_points = 2 * order + 1
     energies = []
-    for s in shifts:
-        params[index] = theta_0 + s
+    for point in range(n_points):
+        params[index] = theta_0 + 2.0 * np.pi * point / (n_points * freq)
         energies.append(cost_fn(params))
+    # E(θ₀ + u/freq) = Re(sum_k weights[k] e^{iku}), u = freq·s
+    weights = np.fft.rfft(energies) / n_points
+    weights[1:] *= 2
 
-    e0, e1, e2 = energies
+    def model(u: float) -> float:
+        return float(np.real(weights @ np.exp(1j * np.arange(order + 1) * u)))
 
-    # Fit E(θ₀ + s) = a + b·cos(freq·s) + c·sin(freq·s)
-    # With u = freq·s, the three evaluation points are u = 0, 2π/3, 4π/3,
-    # giving the standard system:
-    a = (e0 + e1 + e2) / 3.0
-    b = (2.0 * e0 - e1 - e2) / 3.0
-    c = (e1 - e2) / np.sqrt(3.0)
+    if order == 1:
+        u_opt = np.pi - np.angle(weights[1])
+    else:
+        grid = np.linspace(0.0, 2.0 * np.pi, 64 * order, endpoint=False)
+        u_grid = grid[np.argmin([model(u) for u in grid])]
+        step = grid[1]
+        u_opt = minimize_scalar(
+            model,
+            bounds=(u_grid - step, u_grid + step),
+            method="bounded",
+            options={"xatol": 1e-10},
+        ).x
 
-    # Minimum of a + R·cos(freq·s - φ) is at freq·s* = φ + π
-    phi = np.arctan2(c, b)
-    s_opt = (phi + np.pi) / freq
-
-    # Set the optimal parameter value
     period = 2.0 * np.pi / freq
-    params[index] = theta_0 + s_opt
-    # Wrap to [-period/2, period/2]
-    params[index] = (params[index] + period / 2) % period - period / 2
-
-    # Compute the minimum energy analytically
-    R = np.sqrt(b**2 + c**2)
-    energy = a - R
-
-    return params, energy
+    params[index] = (theta_0 + u_opt / freq + period / 2) % period - period / 2
+    return params, model(u_opt)
 
 
 def rotosolve_sweep(
@@ -115,6 +116,8 @@ def rotosolve_sweep(
     tol: float = 1e-8,
     verbose: bool = False,
     callback: Callable[[int, float, np.ndarray], None] | None = None,
+    freqs: Sequence[int] | None = None,
+    orders: Sequence[int] | None = None,
 ) -> tuple[np.ndarray, float, list[float], bool]:
     """
     Optimise all parameters by sweeping Rotosolve across them.
@@ -140,6 +143,9 @@ def rotosolve_sweep(
         Print progress after each sweep.
     callback : callable or None
         Called after each sweep with ``(sweep, energy, params)``.
+    freqs, orders : sequence of int or None
+        Per-parameter frequency and order, as in :func:`rotosolve_step`.
+        Default: all 1.
 
     Returns
     -------
@@ -152,10 +158,12 @@ def rotosolve_sweep(
     converged : bool
         Whether convergence tolerance was reached.
     """
-    import time
-
     params = params.copy()
     n_params = len(params)
+    if freqs is None:
+        freqs = [1] * n_params
+    if orders is None:
+        orders = [1] * n_params
     energy_history: list[float] = []
     converged = False
 
@@ -166,7 +174,9 @@ def rotosolve_sweep(
 
     for sweep in range(1, max_sweeps + 1):
         for j in range(n_params):
-            params, energy = rotosolve_step(cost_fn, params, j)
+            params, energy = rotosolve_step(
+                cost_fn, params, j, freq=freqs[j], order=orders[j]
+            )
 
         energy_history.append(energy)
 

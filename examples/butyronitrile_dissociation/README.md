@@ -17,20 +17,20 @@ the regime where quantum algorithms like VQE excel.
 
 | Stage | Active Space | Basis | Qubits | Ansatz | Backend | Purpose |
 |-------|-------------|-------|--------|--------|---------|---------|
-| **0 — CPU Quick** | CAS(4,4) | STO-3G | 8 | UCCSD (COBYLA) | CPU | Local demo, ~20 min |
+| **0 — CPU Quick** | CAS(4,4) | STO-3G | 8 | UCCSD (COBYLA) | CPU | Local demo, ~20 s |
 | **1 — Baseline** | CAS(8,8) | STO-3G | 16 | ADAPT-VQE (greedy Rotosolve) | GPU recommended | Standard active space |
 | **2 — Extended** | CAS(14,14) | 6-31G* | 28 | UCCSD (Adam) | GPU required | Larger space + better basis |
 
 ## Quick Start
 
 ```bash
-# Stage 0 — fast CPU demo (8 qubits, runs locally in ~20 min)
+# Stage 0 — fast CPU demo (8 qubits, ~20 s)
 python run_cn_dissociation.py --stage 0 --cpu
 
-# Stage 0 — 3-point quick test (~6 min)
+# Stage 0 — 3-point quick test (~8 s)
 python run_cn_dissociation.py --stage 0 --cpu --quick
 
-# Stage 1 — baseline (GPU recommended; CPU takes hours per point)
+# Stage 1 — baseline (GPU recommended)
 python run_cn_dissociation.py --stage 1 --gpu
 
 # Stage 1 — GPU vs CPU comparison
@@ -39,48 +39,32 @@ python run_cn_dissociation.py --stage 1 --both
 # Stage 2 — extended active space (GPU required)
 python run_cn_dissociation.py --stage 2 --gpu
 
-# Both stages, full GPU demo
+# Stages 1 and 2 on GPU
 python run_cn_dissociation.py --stage both --gpu
 ```
 
-## The Story: Why Active Space Size Matters
+## Stage 0 Results
 
-Running Stage 0 locally reveals exactly *why* this problem needs a GPU:
+UCCSD-VQE error against exact CASCI in the same CAS(4,4), about 2 s per
+point on CPU:
 
 ```
-d(C≡N)   VQE error vs FCI
-──────   ─────────────────
-1.16 Å   0.35 mHa  ✓  (chemical accuracy — VQE works near equilibrium)
-1.36 Å   2.03 mHa
-1.55 Å   6.53 mHa
-1.75 Å   17.2  mHa
-1.95 Å   58.8  mHa  ← bond begins to break, multireference kicks in
-2.15 Å   105   mHa
-2.35 Å   138   mHa
-2.55 Å   162   mHa
-2.75 Å   179   mHa  ✗  (500× worse than equilibrium)
+d(C≡N)   VQE error vs CASCI
+──────   ──────────────────
+1.157 Å   0.17 mHa
+1.356 Å   1.35 mHa
+1.555 Å   3.15 mHa
+1.754 Å  10.44 mHa
+1.953 Å  18.30 mHa
+2.152 Å   7.43 mHa
+2.351 Å   2.74 mHa
+2.550 Å   0.90 mHa
+2.749 Å   0.25 mHa
 ```
 
-**The error explodes 500× as the C≡N bond breaks.** CAS(4,4) simply
-doesn't have enough orbitals to describe the correlated electron pairs in
-a breaking triple bond. This is not a failure of VQE — it's a failure of
-the active space. The fix is more qubits.
-
-### Why GPU is needed for the fix
-
-| Active space | Qubits | CPU time/point | GPU time/point | Speedup |
-|---|---|---|---|---|
-| CAS(4,4) Stage 0 | 8 | ~0.6 s | ~0.8 s | ≈ 1× (overhead dominates) |
-| CAS(8,8) Stage 1 | 16 | ~hours | ~minutes | **10–50×** |
-| CAS(14,14) Stage 2 | 28 | infeasible | minutes | **∞** |
-
-At 8 qubits, state-vector simulation is trivially fast and GPU overhead
-actually hurts. The GPU advantage kicks in sharply above ~12 qubits,
-where the state-vector doubles in size every qubit. By 16 qubits (Stage 1)
-the GPU is 10–50× faster; by 28 qubits (Stage 2) CPU simulation is
-simply not practical.
-
-**Stage 0 demonstrates the problem. Stages 1 and 2 solve it — on a GPU.**
+Stages 1 and 2 grow the active space to 16 and 28 qubits; their GPU and CPU
+timings have not been measured on the current code. `--quick` writes to a
+separate `*_quick.json`.
 
 ## Plotting Results
 
@@ -120,7 +104,6 @@ running VQE.
 
 ## Requirements
 
-- `qoro-maestro >= 0.2.7`
-- `pyscf`
-- `matplotlib`
-- GPU license key (for Stages 1–2 with `--gpu`)
+- `qoro-pyscf` with its divi dependency (`uv sync`)
+- `matplotlib` (the `notebook` extra)
+- GPU licence key (for Stages 1–2 with `--gpu`)

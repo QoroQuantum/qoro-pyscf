@@ -79,12 +79,11 @@ def suggest_active_space(
     Examples
     --------
     >>> from pyscf import gto, scf
-    >>> from qoro_pyscf import suggest_active_space, QoroSolver
+    >>> from qoro_pyscf import suggest_active_space
     >>> mol = gto.M(atom="N 0 0 0; N 0 0 1.1", basis="cc-pvdz")
     >>> mf = scf.RHF(mol).run()
     >>> norb, nelec, mo = suggest_active_space(mf, "N 2p")
     >>> cas = mcscf.CASCI(mf, norb, nelec)
-    >>> cas.fcisolver = QoroSolver(ansatz="uccsd")
     >>> cas.run(mo)
     """
     from pyscf.mcscf import avas
@@ -98,11 +97,9 @@ def suggest_active_space(
 
     norb, nelec_total, mo_coeff = avas.avas(mf, ao_labels, **kwargs)
 
-    # avas returns nelec as int or numpy scalar; convert to (alpha, beta)
     if isinstance(nelec_total, (int, np.integer)):
-        n_beta = int(nelec_total) // 2
-        n_alpha = int(nelec_total) - n_beta
-        nelec = (n_alpha, n_beta)
+        n_alpha = (int(nelec_total) + mf.mol.spin) // 2
+        nelec = (n_alpha, int(nelec_total) - n_alpha)
     else:
         nelec = tuple(int(x) for x in nelec_total)
 
@@ -196,15 +193,14 @@ def suggest_active_space_from_mp2(
 
     norb = len(active_indices)
 
-    # Count active electrons from rounded occupations
-    n_active_electrons = int(round(np.sum(occ[active_indices])))
-    n_beta = n_active_electrons // 2
-    n_alpha = n_active_electrons - n_beta
-    nelec = (n_alpha, n_beta)
+    # Every orbital outside the active space is core (occupation > 1) or virtual
+    inactive = np.setdiff1d(np.arange(len(occ)), active_indices)
+    core_indices = inactive[occ[inactive] > 1.0]
+    virt_indices = inactive[occ[inactive] <= 1.0]
 
-    # Reorder MOs: core (doubly occupied) | active | virtual (empty)
-    core_indices = np.where(occ >= 2.0 - threshold)[0]
-    virt_indices = np.where(occ <= threshold)[0]
+    n_active_electrons = mf.mol.nelectron - 2 * len(core_indices)
+    n_alpha = (n_active_electrons + mf.mol.spin) // 2
+    nelec = (n_alpha, n_active_electrons - n_alpha)
 
     reorder = np.concatenate([core_indices, active_indices, virt_indices])
     mo_coeff = no_coeff[:, reorder]

@@ -1,197 +1,67 @@
 # API Reference
 
-## `QoroSolver`
+## `QSCISolver(inner_solver, n_samples=500, probability_threshold=1e-8)`
 
-The primary class — a PySCF `fcisolver` drop-in that runs VQE on Maestro.
+PySCF `fcisolver`. `inner_solver` is a divi `VQEFCISolver`; its trained VQE is
+sampled with `sample_solution()`, bitstrings with the wrong electron count per
+spin or at or below `probability_threshold` are dropped, the `n_samples` most
+probable are kept, and PySCF's `selected_ci.kernel_fixed_space` diagonalises in
+their alpha × beta strings.
 
-```python
-from qoro_pyscf import QoroSolver
+After `kernel`: `vqe_energy`, `qsci_energy`, `n_determinants`, `qsci_time`,
+and `converged` (the inner VQE's). `approx_kernel` returns the last result. RDM methods (`make_rdm1`, `make_rdm1s`, `make_rdm12`,
+`make_rdm12s`, `spin_square`) use the selected-CI eigenvector.
 
-solver = QoroSolver(
-    ansatz="hardware_efficient",   # "hardware_efficient", "uccsd", "upccd", or "adapt"
-    ansatz_layers=2,               # layers for hardware-efficient ansatz
-    optimizer="COBYLA",            # any scipy.optimize method
-    maxiter=200,                   # max VQE iterations (0 = use initial_point directly)
-    backend="gpu",                 # "gpu" or "cpu"
-    simulation="statevector",      # "statevector" or "mps"
-    mps_bond_dim=64,               # MPS bond dimension (if simulation="mps")
-    license_key=None,              # Maestro GPU license key (optional)
-    initial_point=None,            # initial parameter vector (optional)
-    verbose=True,                  # print VQE progress
-    # ADAPT-VQE parameters (only used when ansatz="adapt"):
-    adapt_threshold=1e-3,          # convergence: stop when max |gradient| below this
-    adapt_max_ops=50,              # max operators to add
-    adapt_pool="sd",               # operator pool: "sd" (singles+doubles) or "d" (doubles)
-)
-```
+## `AdamOptimizer(learning_rate=0.01, grad_shift=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
 
-### Usage with PySCF
+A divi `Optimizer`. Each iteration evaluates the `2 n` central
+finite-difference points in one batch, takes an Adam step and evaluates the
+new point; the best point seen is returned. No checkpointing.
 
-```python
-from pyscf import gto, scf, mcscf
-from qoro_pyscf import QoroSolver
+## `run_adapt_vqe(n_qubits, nelec, identity_offset, pauli_labels, pauli_coeffs, config, pool="sd", gradient_threshold=1e-3, max_operators=50, optimizer="COBYLA", maxiter_per_step=100, verbose=False, greedy=False)`
 
-mol = gto.M(atom="H 0 0 0; H 0 0 0.74", basis="sto-3g")
-hf  = scf.RHF(mol).run()
+ADAPT-VQE over the spin-conserving single and double excitations
+(`pool="sd"`) or the doubles alone (`pool="d"`). Returns a dict with `energy`, `params`, `selected_ops`,
+`converged` (True when the largest gradient fell below the threshold),
+`n_operators`, `energy_history` and `circuit`. `optimizer="ROTOSOLVE"` sweeps
+Rotosolve with each operator's frequency. `greedy=True` instead takes one
+Rotosolve step on the newest parameter only, ignoring `optimizer` and
+`maxiter_per_step`, and never reselects an operator already in the circuit.
 
-# CASCI
-cas = mcscf.CASCI(hf, 2, 2)
-cas.fcisolver = QoroSolver(ansatz="uccsd")
-cas.run()
+## `build_pauli_terms(hamiltonian)`
 
-# CASSCF (orbital optimisation using RDMs)
-cas = mcscf.CASSCF(hf, 2, 2)
-cas.fcisolver = QoroSolver(ansatz="hardware_efficient", ansatz_layers=3)
-cas.run()
-```
+Splits a Qiskit `SparsePauliOp` into `(identity_offset, pauli_labels,
+pauli_coeffs)` for `run_adapt_vqe`, reversing each label to qubit-``k``-first.
 
-### Attributes (after `kernel` runs)
+## `rotosolve_step(cost_fn, params, index, freq=1, order=1)` / `rotosolve_sweep(cost_fn, params, max_sweeps=50, tol=1e-8, verbose=False, callback=None, freqs=None, orders=None)`
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `converged` | `bool` | Whether the optimiser converged |
-| `vqe_time` | `float` | Wall-clock time for VQE (seconds) |
-| `energy_history` | `list[float]` | Energy at each VQE iteration |
-| `optimal_params` | `np.ndarray` | Optimised variational parameters |
+Minimisation of `a + Σ_{k ≤ order} b_k cos(k freq θ) + c_k sin(k freq θ)`
+from `2 order + 1` evaluations per parameter: in closed form for `order=1`,
+numerically for higher orders. The sweep returns `(params, energy,
+energy_history, converged)`.
 
----
+ADAPT-VQE's single and double excitations are exact Jordan-Wigner
+exponentials `exp(θ (T - T†))`, built as commuting Pauli rotations; both are
+Givens rotations (frequency 1, order 2).
 
-## `QSCISolver`
+## Active space
 
-Quantum-Selected Configuration Interaction — wraps a `QoroSolver` for state preparation, then classically diagonalizes in the quantum-selected subspace. Reference: [arXiv:2302.11320](https://arxiv.org/abs/2302.11320).
+- `suggest_active_space(mf, ao_labels, threshold=0.2, minao="minao", verbose=None)` → `(norb, (n_alpha, n_beta), mo_coeff)` via AVAS.
+- `suggest_active_space_from_mp2(mf, threshold=0.02, max_orbitals=None)` → the same from MP2 natural occupations; every orbital is kept in `mo_coeff`, ordered core, active, virtual.
 
-```python
-from qoro_pyscf import QSCISolver, QoroSolver
+## Properties
 
-solver = QSCISolver(
-    inner_solver=QoroSolver(ansatz="uccsd"),  # VQE state preparation
-    n_samples=500,              # max determinants in CI subspace
-    probability_threshold=1e-8, # min probability for configuration selection
-    verbose=True,               # print QSCI progress
-)
-```
+- `compute_dipole_moment(mol, mo_coeff, rdm1, ncore)` → `(dipole_debye, magnitude)`.
+- `compute_natural_orbitals(rdm1)` → occupations (descending) and orbitals.
+- `compute_mulliken_spin_population(mol, mo_coeff, rdm1_a, rdm1_b, ncore)` → per-atom spin population.
 
-### Usage with PySCF
+## Tapering
 
-```python
-from pyscf import gto, scf, mcscf
-from qoro_pyscf import QoroSolver, QSCISolver
+`taper_hamiltonian(qubit_op, n_qubits, nelec, stabilizers=None)` →
+`TaperingResult(tapered_op, original_n_qubits, tapered_n_qubits,
+removed_positions, stabilizers)`; the default stabilizers are the alpha and
+beta parities.
 
-mol = gto.M(atom="Li 0 0 0; H 0 0 1.6", basis="sto-3g", verbose=0)
-hf = scf.RHF(mol).run()
+## Backends
 
-cas = mcscf.CASCI(hf, 3, 2)
-inner = QoroSolver(ansatz="uccsd", maxiter=100)
-cas.fcisolver = QSCISolver(inner_solver=inner)
-e_qsci = cas.kernel()[0]
-```
-
-### Attributes (after `kernel` runs)
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `converged` | `bool` | Whether QSCI completed successfully |
-| `vqe_energy` | `float` | Inner VQE energy (before QSCI improvement) |
-| `qsci_energy` | `float` | Final QSCI energy |
-| `qsci_time` | `float` | Wall-clock time for full QSCI pipeline (seconds) |
-| `n_determinants` | `int` | Size of the CI subspace |
-
-### RDM Interface
-
-`QSCISolver` implements the full PySCF `fcisolver` RDM protocol: `make_rdm1`, `make_rdm1s`, `make_rdm12`, `make_rdm12s`, `spin_square`. All RDMs are computed classically from the selected-CI eigenvector.
-
----
-
-## `configure_backend`
-
-Create a backend configuration manually (used internally by `QoroSolver`, but available for advanced use).
-
-```python
-from qoro_pyscf import configure_backend
-
-# GPU statevector
-cfg = configure_backend(use_gpu=True, simulation="statevector")
-
-# GPU MPS with custom bond dimension
-cfg = configure_backend(use_gpu=True, simulation="mps", mps_bond_dim=128)
-
-# With license key
-cfg = configure_backend(license_key="XXXX-XXXX-XXXX-XXXX")
-```
-
----
-
-## `set_license_key`
-
-Set the Maestro GPU license key programmatically.
-
-```python
-from qoro_pyscf import set_license_key
-
-set_license_key("XXXX-XXXX-XXXX-XXXX")
-# Equivalent to: os.environ["MAESTRO_LICENSE_KEY"] = "XXXX-XXXX-XXXX-XXXX"
-```
-
----
-
-## `BackendConfig`
-
-Dataclass holding backend configuration (returned by `configure_backend`).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `simulator_type` | `maestro.SimulatorType` | GPU or QCSim (CPU) |
-| `simulation_type` | `maestro.SimulationType` | Statevector or MPS |
-| `label` | `str` | Human-readable label |
-| `mps_bond_dim` | `int \| None` | MPS bond dimension |
-
----
-
-## Internal Modules
-
-These are not part of the public API but are documented for contributors.
-
-### `hamiltonian`
-
-```python
-from qoro_pyscf.hamiltonian import (
-    integrals_to_qubit_hamiltonian,  # (h1, h2, norb) → (QubitOperator, offset)
-    qubit_op_to_pauli_list,          # QubitOperator → (id_coeff, labels, coeffs)
-)
-```
-
-### `ansatze`
-
-```python
-from qoro_pyscf.ansatze import (
-    hartree_fock_circuit,             # (n_qubits, nelec) → QuantumCircuit
-    hardware_efficient_ansatz,        # (params, n_qubits, n_layers) → QuantumCircuit
-    hardware_efficient_param_count,   # (n_qubits, n_layers) → int
-    uccsd_ansatz,                     # (params, n_qubits, nelec) → QuantumCircuit
-    uccsd_param_count,                # (n_qubits, nelec) → int
-    upccd_ansatz,                     # (params, n_qubits, nelec) → QuantumCircuit
-    upccd_param_count,                # (n_qubits, nelec) → int
-)
-```
-
-### `expectation`
-
-```python
-from qoro_pyscf.expectation import (
-    evaluate_expectation,    # (circuit, pauli_labels, config) → np.ndarray
-    compute_energy,          # (circuit, offset, labels, coeffs, config) → float
-    get_state_probabilities, # (circuit, config) → np.ndarray
-    compute_state_fidelity,  # (circuit_a, circuit_b, config) → float
-)
-```
-
-### `rdm`
-
-```python
-from qoro_pyscf.rdm import (
-    compute_1rdm_spatial,   # (circuit, n_qubits, config) → (rdm1_a, rdm1_b)
-    compute_2rdm_spatial,   # (circuit, n_qubits, config) → (rdm2_aa, rdm2_ab, rdm2_bb)
-    trace_spin_rdm1,        # (rdm1_a, rdm1_b) → rdm1
-    trace_spin_rdm2,        # (rdm2_aa, rdm2_ab, rdm2_bb) → rdm2
-)
-```
+`configure_backend(use_gpu=False, simulation="statevector", mps_bond_dim=64, license_key=None)` → `BackendConfig` for `run_adapt_vqe`; falls back to CPU when no GPU is available. `set_license_key(key)` sets `MAESTRO_LICENSE_KEY`.

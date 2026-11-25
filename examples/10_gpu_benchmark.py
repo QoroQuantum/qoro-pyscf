@@ -1,208 +1,85 @@
-#!/usr/bin/env python3
-# Copyright 2026 Qoro Quantum Ltd.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 Qoro Quantum Ltd.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-Example 10 — GPU vs CPU Benchmark (Hydrogen Chains)
-====================================================
+"""Maestro CPU against GPU on hydrogen chains with UpCCD.
 
-Benchmarks Maestro GPU vs CPU performance on hydrogen chains of increasing
-size using the UpCCD ansatz.  The active space grows with chain length,
-pushing the system into a regime where GPU acceleration matters.
+Linear H4 to H10 chains at 1.5 Å spacing in STO-3G, with every orbital active
+(8 to 20 qubits), solved by divi's
+:class:`~divi.qprog.algorithms.VQEFCISolver` with
+:class:`~divi.qprog.algorithms.UpCCDAnsatz`. The GPU needs a Maestro GPU
+licence (``MAESTRO_LICENSE_KEY``).
 
-This is designed to be run on a machine with an NVIDIA GPU and a Qoro
-license key.
+Usage::
 
-Benchmark systems
------------------
-| Chain | Active Space | Qubits | UpCCD Params |
-|-------|-------------|--------|-------------|
-| H₄   | CAS(4,4)    |   8    |     4       |
-| H₆   | CAS(6,6)    |  12    |     9       |
-| H₈   | CAS(8,8)    |  16    |    16       |
-| H₁₀  | CAS(10,10)  |  20    |    25       |
-
-At 16–20 qubits, statevector simulation involves 2^16–2^20 amplitudes per
-circuit evaluation.  GPU parallelism delivers real speedups here.
-
-Usage
------
-    # CPU only (baseline)
-    python 10_gpu_benchmark.py --cpu
-
-    # GPU only
-    python 10_gpu_benchmark.py --gpu
-
-    # Both — full comparison (recommended)
     python 10_gpu_benchmark.py --both
-
-    # Control which chain sizes to run
-    python 10_gpu_benchmark.py --both --max-atoms 8
-
-    # MPS mode benchmark
-    python 10_gpu_benchmark.py --gpu --simulation mps --bond-dim 64
+    python 10_gpu_benchmark.py --gpu --max-atoms 8 --simulation mps --bond-dim 64
 """
 
 import argparse
 import time
 
-import numpy as np
-from pyscf import gto, scf, mcscf
+from pyscf import gto, mcscf, scf
 
-from qoro_pyscf import QoroSolver
-from qoro_pyscf.ansatze import upccd_param_count
+from divi.backends import MaestroConfig, MaestroSimulator
+from divi.qprog.algorithms import UpCCDAnsatz, VQEFCISolver
+from divi.qprog.optimizers import ScipyMethod, ScipyOptimizer
 
-
-def build_hydrogen_chain(n_atoms: int, spacing: float = 1.5) -> gto.Mole:
-    """Build a linear hydrogen chain with equal spacing (in Å)."""
-    atoms = "; ".join(f"H 0 0 {i * spacing}" for i in range(n_atoms))
-    return gto.M(atom=atoms, basis="sto-3g", verbose=0)
+SIMULATORS = {"cpu": "QCSim", "gpu": "Gpu"}
 
 
-def run_benchmark(n_atoms, backend, simulation, mps_bond_dim, maxiter):
-    """Run a single benchmark: returns (energy, fci_energy, time, converged)."""
-    mol = build_hydrogen_chain(n_atoms)
-    hf_obj = scf.RHF(mol).run()
-
-    norb = n_atoms
-    nelec = n_atoms
-    n_qubits = 2 * norb
-
-    # FCI reference
-    cas_fci = mcscf.CASCI(hf_obj, norb, nelec)
-    cas_fci.verbose = 0
-    fci_e = cas_fci.kernel()[0]
-
-    # VQE with UpCCD
-    cas_vqe = mcscf.CASCI(hf_obj, norb, nelec)
-    cas_vqe.verbose = 0
-    cas_vqe.fcisolver = QoroSolver(
-        ansatz="upccd",
-        backend=backend,
-        simulation=simulation,
-        mps_bond_dim=mps_bond_dim,
-        maxiter=maxiter,
-        verbose=False,
+def run_chain(
+    mean_field: scf.hf.RHF, maestro_config: MaestroConfig, max_iterations: int
+) -> tuple[float, float, int]:
+    """Total energy, wall-clock seconds and parameter count of one VQE."""
+    n_atoms = mean_field.mol.natm
+    casci = mcscf.CASCI(mean_field, n_atoms, n_atoms)
+    casci.fcisolver = VQEFCISolver(
+        backend=MaestroSimulator(maestro_config=maestro_config),
+        optimizer=ScipyOptimizer(ScipyMethod.L_BFGS_B),
+        ansatz=UpCCDAnsatz(),
+        max_iterations=max_iterations,
     )
-
-    t0 = time.perf_counter()
-    vqe_e = cas_vqe.kernel()[0]
-    elapsed = time.perf_counter() - t0
-
-    converged = cas_vqe.fcisolver.converged
-    return vqe_e, fci_e, elapsed, converged
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="GPU vs CPU benchmark on hydrogen chains"
-    )
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--gpu", action="store_true", help="Run GPU only")
-    mode.add_argument("--cpu", action="store_true", help="Run CPU only")
-    mode.add_argument("--both", action="store_true", help="Run both and compare")
-    parser.add_argument(
-        "--max-atoms", type=int, default=10,
-        help="Largest H-chain to benchmark (default: 10)"
-    )
-    parser.add_argument(
-        "--simulation", type=str, default="statevector",
-        choices=["statevector", "mps"],
-        help="Simulation mode (default: statevector)"
-    )
-    parser.add_argument(
-        "--bond-dim", type=int, default=64,
-        help="MPS bond dimension (default: 64, only used with --simulation mps)"
-    )
-    parser.add_argument(
-        "--maxiter", type=int, default=300,
-        help="Max VQE iterations (default: 300)"
-    )
-    args = parser.parse_args()
-
-    chain_sizes = [n for n in [4, 6, 8, 10] if n <= args.max_atoms]
-    backends = []
-    if args.both:
-        backends = ["cpu", "gpu"]
-    elif args.gpu:
-        backends = ["gpu"]
-    else:
-        backends = ["cpu"]
-
-    sim_label = args.simulation.upper()
-    if args.simulation == "mps":
-        sim_label += f" (bond_dim={args.bond_dim})"
-
-    print("=" * 80)
-    print("  MAESTRO GPU vs CPU BENCHMARK — HYDROGEN CHAINS + UpCCD")
-    print(f"  Simulation: {sim_label}")
-    print(f"  Backends:   {', '.join(b.upper() for b in backends)}")
-    print(f"  Chains:     {', '.join(f'H{n}' for n in chain_sizes)}")
-    print("=" * 80)
-
-    # Header
-    print(f"\n  {'Chain':<6s}  {'Qubits':>6s}  {'Params':>6s}  ", end="")
-    for b in backends:
-        print(f"{'Time ('+b.upper()+')':>12s}  {'Error (mHa)':>11s}  ", end="")
-    if len(backends) == 2:
-        print(f"{'Speedup':>8s}", end="")
-    print()
-    print(f"  {'─' * (6 + 8 + 8 + len(backends) * 25 + (8 if len(backends) == 2 else 0))}")
-
-    for n_atoms in chain_sizes:
-        n_qubits = 2 * n_atoms
-        nelec = (n_atoms // 2, n_atoms // 2)
-        n_params = upccd_param_count(n_qubits, nelec)
-
-        results = {}
-        for backend in backends:
-            print(f"  Running H{n_atoms} on {backend.upper()}...", end="", flush=True)
-            try:
-                vqe_e, fci_e, elapsed, converged = run_benchmark(
-                    n_atoms, backend, args.simulation, args.bond_dim, args.maxiter
-                )
-                error = abs(vqe_e - fci_e) * 1000
-                results[backend] = (elapsed, error, converged)
-                print(f" done ({elapsed:.1f}s)")
-            except Exception as e:
-                results[backend] = None
-                print(f" FAILED: {e}")
-
-        # Print row
-        print(f"  H{n_atoms:<5d} {n_qubits:>6d}  {n_params:>6d}  ", end="")
-        for b in backends:
-            if results[b] is not None:
-                elapsed, error, converged = results[b]
-                marker = "" if converged else " ✗"
-                print(f"{elapsed:>10.2f}s  {error:>10.4f}{marker}  ", end="")
-            else:
-                print(f"{'FAILED':>12s}  {'—':>11s}  ", end="")
-
-        if len(backends) == 2 and all(results[b] is not None for b in backends):
-            speedup = results["cpu"][0] / results["gpu"][0]
-            print(f"{speedup:>7.1f}×", end="")
-        print()
-
-    print(f"\n{'=' * 80}")
-    print("  Notes:")
-    print("  - Speedup = CPU_time / GPU_time")
-    print("  - Error is measured against PySCF's exact FCI solver")
-    print("  - Chemical accuracy threshold: 1.6 mHa")
-    if args.simulation == "mps":
-        print(f"  - MPS bond dimension: {args.bond_dim}")
-    print()
+    start = time.perf_counter()
+    casci.kernel()
+    return casci.e_tot, time.perf_counter() - start, casci.ci.n_params
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--cpu", action="store_true")
+    mode.add_argument("--gpu", action="store_true")
+    mode.add_argument("--both", action="store_true")
+    parser.add_argument("--max-atoms", type=int, default=10)
+    parser.add_argument(
+        "--simulation", choices=["statevector", "mps"], default="statevector"
+    )
+    parser.add_argument("--bond-dim", type=int, default=64)
+    parser.add_argument("--max-iterations", type=int, default=300)
+    args = parser.parse_args()
+
+    devices = ["cpu", "gpu"] if args.both else ["gpu"] if args.gpu else ["cpu"]
+    options = (
+        {"simulation_type": "MatrixProductState", "max_bond_dimension": args.bond_dim}
+        if args.simulation == "mps"
+        else {}
+    )
+    print(
+        f"{'Chain':<6} {'Qubits':>6} {'Params':>6}"
+        + "".join(f" {device + ' s':>8} {'mHa':>8}" for device in devices)
+        + (f" {'Speedup':>8}" if len(devices) == 2 else "")
+    )
+    for n_atoms in (n for n in (4, 6, 8, 10) if n <= args.max_atoms):
+        atoms = "; ".join(f"H 0 0 {1.5 * i}" for i in range(n_atoms))
+        mean_field = scf.RHF(gto.M(atom=atoms, basis="sto-3g", verbose=0)).run()
+        exact = mcscf.CASCI(mean_field, n_atoms, n_atoms).kernel()[0]
+        row, times = "", {}
+        for device in devices:
+            config = MaestroConfig(simulator_type=SIMULATORS[device], **options)
+            energy, times[device], n_params = run_chain(
+                mean_field, config, args.max_iterations
+            )
+            row += f" {times[device]:>8.2f} {1e3 * (energy - exact):>8.3f}"
+        if len(devices) == 2:
+            row += f" {times['cpu'] / times['gpu']:>7.1f}x"
+        print(f"H{n_atoms:<5} {2 * n_atoms:>6} {n_params:>6}{row}")
