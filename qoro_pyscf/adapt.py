@@ -37,8 +37,9 @@ from openfermion import FermionOperator, hermitian_conjugated, jordan_wigner
 from qiskit.quantum_info import SparsePauliOp
 from scipy.optimize import minimize
 
+from divi.qprog import ParameterSpace
+from divi.qprog.optimizers import RotosolveOptimizer
 from qoro_pyscf.backends import BackendConfig
-from qoro_pyscf.rotosolve import rotosolve_step, rotosolve_sweep
 
 logger = logging.getLogger(__name__)
 
@@ -263,16 +264,18 @@ def run_adapt_vqe(
     max_operators : int
         Maximum number of operators to add.
     optimizer : str
-        Optimizer for re-optimization. Use ``"ROTOSOLVE"`` for analytical
-        optimization, or any SciPy method.
+        Optimizer for re-optimization: ``"ROTOSOLVE"`` for divi's
+        :class:`~divi.qprog.optimizers.RotosolveOptimizer`, swept until the
+        energy changes by less than 1e-8, or any SciPy method.
     maxiter_per_step : int
-        Max VQE iterations per ADAPT step (ignored for greedy Rotosolve).
+        Max iterations, or Rotosolve sweeps, per ADAPT step (ignored when
+        ``greedy``).
     verbose : bool
         Print progress.
     greedy : bool
-        If True, only optimize the last-added parameter at each step
-        using Rotosolve (3 circuit evaluations). Much faster but less
-        accurate than re-optimizing all parameters.
+        If True, only optimize the last-added parameter at each step, with one
+        Rotosolve sweep over it. Much faster but less accurate than
+        re-optimizing all parameters.
 
     Returns
     -------
@@ -295,6 +298,13 @@ def run_adapt_vqe(
     def cost(p):
         qc = _build_adapt_circuit(nelec, selected_ops, p)
         return _compute_energy(qc, identity_offset, pauli_labels, pauli_coeffs, config)
+
+    def cost_rows(rows):
+        return np.array([cost(row) for row in np.atleast_2d(rows)])
+
+    def cost_newest(rows):
+        newest = np.atleast_2d(rows)[:, 0]
+        return cost_rows(np.column_stack([np.tile(params[:-1], (len(newest), 1)), newest]))
 
     current_energy = cost(params)
     energy_history.append(current_energy)
@@ -371,16 +381,29 @@ def run_adapt_vqe(
 
         # --- Optimise parameters ---
         if greedy:
-            params, current_energy = rotosolve_step(
-                cost, params, len(params) - 1, order=2
+            result = RotosolveOptimizer().optimize(
+                cost_newest,
+                params[-1:],
+                parameter_space=lambda: ParameterSpace(((1.0, 2),)),
+                max_iterations=1,
             )
+            params[-1] = result.x[0]
+            current_energy = float(result.fun[0])
         elif optimizer.upper() == "ROTOSOLVE":
-            params, current_energy, _, _ = rotosolve_sweep(
-                cost, params,
-                max_sweeps=maxiter_per_step,
-                tol=1e-8,
-                orders=[2] * len(params),
-            )
+            rotosolve = RotosolveOptimizer()
+            space = ParameterSpace(((1.0, 2),) * len(params))
+            for _ in range(maxiter_per_step):
+                previous_energy = current_energy
+                result = rotosolve.optimize(
+                    cost_rows,
+                    params,
+                    parameter_space=lambda: space,
+                    max_iterations=1,
+                )
+                current_energy = float(result.fun[0])
+                if abs(previous_energy - current_energy) < 1e-8:
+                    break
+            params = result.x
         else:
             opts = {"maxiter": maxiter_per_step}
             if optimizer.upper() == "COBYLA":

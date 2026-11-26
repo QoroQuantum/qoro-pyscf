@@ -8,7 +8,7 @@ along the bond, all other atoms fixed, from 1.157 Å to 2.749 Å.
 
   Stage 0: CAS(4,4)/STO-3G, 8 qubits, UCCSD with COBYLA on divi.
   Stage 1: CAS(8,8)/STO-3G, 16 qubits, greedy ADAPT-VQE over doubles.
-  Stage 2: CAS(14,14)/6-31G*, 28 qubits, UCCSD with Adam on divi.
+  Stage 2: CAS(14,14)/6-31G*, 28 qubits, UCCSD with L-BFGS-B on divi.
 
 Each point also gets HF, MP2 and exact CASCI where feasible. Results are saved
 to ``results/`` as JSON for ``plot_results.py``. The GPU needs a Maestro GPU
@@ -33,7 +33,7 @@ from divi.backends import MaestroConfig, MaestroSimulator
 from divi.qprog.algorithms import UCCSDAnsatz, VQEFCISolver
 from divi.qprog.optimizers import ScipyMethod, ScipyOptimizer
 from divi.qprog.problems import MolecularProblem
-from qoro_pyscf import AdamOptimizer, build_pauli_terms, configure_backend, run_adapt_vqe
+from qoro_pyscf import build_pauli_terms, configure_backend, run_adapt_vqe
 
 EQUILIBRIUM_ATOMS = [
     ("C", (0.71951, -0.72284, 0.00000)),
@@ -80,8 +80,8 @@ STAGES = {
         "nelec": 14,
         "basis": "6-31g*",
         "ansatz": "uccsd",
-        "optimizer": "adam",
-        "maxiter": 800,
+        "optimizer": "L-BFGS-B",
+        "maxiter": 200,
     },
 }
 SIMULATORS = {"cpu": "QCSim", "gpu": "Gpu"}
@@ -99,16 +99,11 @@ def build_butyronitrile(cn_distance: float, basis: str) -> gto.Mole:
 
 def make_solver(stage: dict, device: str) -> VQEFCISolver:
     """A UCCSD solver, reused across geometries so each point warm-starts."""
-    optimizer = (
-        AdamOptimizer(learning_rate=0.005)
-        if stage["optimizer"] == "adam"
-        else ScipyOptimizer(ScipyMethod.COBYLA)
-    )
     return VQEFCISolver(
         backend=MaestroSimulator(
             maestro_config=MaestroConfig(simulator_type=SIMULATORS[device])
         ),
-        optimizer=optimizer,
+        optimizer=ScipyOptimizer(ScipyMethod(stage["optimizer"])),
         ansatz=UCCSDAnsatz(),
         max_iterations=stage["maxiter"],
     )

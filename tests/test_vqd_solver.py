@@ -6,8 +6,8 @@ import pytest
 from pyscf import ao2mo, mcscf
 
 from divi.qprog.algorithms import VQE, UCCSDAnsatz
-from divi.qprog.optimizers import ScipyMethod, ScipyOptimizer
-from qoro_pyscf import AdamOptimizer, VQDSolver
+from divi.qprog.optimizers import RotosolveOptimizer, ScipyMethod, ScipyOptimizer
+from qoro_pyscf import VQDSolver
 from tests._helpers import H2, compute_exact_roots, run_mean_field
 
 
@@ -67,8 +67,8 @@ def compute_rdm_energy(solver: VQDSolver, h1, ecore, eri) -> float:
 
 @pytest.mark.parametrize(
     "optimizer",
-    [ScipyOptimizer(ScipyMethod.COBYLA), AdamOptimizer(learning_rate=0.05)],
-    ids=["cobyla", "adam"],
+    [ScipyOptimizer(ScipyMethod.COBYLA), RotosolveOptimizer()],
+    ids=["cobyla", "rotosolve"],
 )
 def test_ground_root_is_exact_and_excited_root_deflated(
     backend, h2_active_space, optimizer

@@ -11,8 +11,6 @@ them.
 | Module | Responsibility |
 |--------|---------------|
 | `adapt.py` | ADAPT-VQE on Maestro circuits, and `build_pauli_terms` to feed it a divi Hamiltonian. |
-| `rotosolve.py` | Rotosolve steps and sweeps, with per-parameter frequencies. |
-| `adam.py` | `AdamOptimizer`, a divi `Optimizer`. |
 | `active_space.py` | AVAS and MP2-natural-orbital active-space selection. |
 | `properties.py` | Dipole moments, natural orbitals, Mulliken spin populations from active-space RDMs. |
 | `tapering.py` | Z₂ qubit tapering of OpenFermion `QubitOperator`s. |
