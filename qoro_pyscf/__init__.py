@@ -15,24 +15,15 @@
 """
 qoro-pyscf
 ==========
-PySCF tools not yet in divi: a VQD active-space solver, ADAPT-VQE, active-space
-selection, properties and qubit tapering.
+PySCF tools not yet in divi: a VQD active-space solver, ADAPT-VQE and qubit
+tapering.
 Ground-state VQE and QSCI solvers live in divi
 (:class:`divi.qprog.algorithms.VQEFCISolver`,
 :class:`divi.qprog.ensembles.qsci.QSCISolver`).
 """
 
-from qoro_pyscf.active_space import (
-    suggest_active_space,
-    suggest_active_space_from_mp2,
-)
 from qoro_pyscf.adapt import build_pauli_terms, run_adapt_vqe
 from qoro_pyscf.backends import BackendConfig, configure_backend, set_license_key
-from qoro_pyscf.properties import (
-    compute_dipole_moment,
-    compute_mulliken_spin_population,
-    compute_natural_orbitals,
-)
 from qoro_pyscf.tapering import TaperingResult, taper_hamiltonian
 from qoro_pyscf.vqd_solver import VQDSolver
 
@@ -41,14 +32,9 @@ __all__ = [
     "TaperingResult",
     "VQDSolver",
     "build_pauli_terms",
-    "compute_dipole_moment",
-    "compute_mulliken_spin_population",
-    "compute_natural_orbitals",
     "configure_backend",
     "run_adapt_vqe",
     "set_license_key",
-    "suggest_active_space",
-    "suggest_active_space_from_mp2",
     "taper_hamiltonian",
 ]
 __version__ = "0.6.1"

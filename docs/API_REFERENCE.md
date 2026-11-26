@@ -20,17 +20,6 @@ rotations (frequency 1, order 2).
 Splits a Qiskit `SparsePauliOp` into `(identity_offset, pauli_labels,
 pauli_coeffs)` for `run_adapt_vqe`, reversing each label to qubit-``k``-first.
 
-## Active space
-
-- `suggest_active_space(mf, ao_labels, threshold=0.2, minao="minao", verbose=None)` → `(norb, (n_alpha, n_beta), mo_coeff)` via AVAS.
-- `suggest_active_space_from_mp2(mf, threshold=0.02, max_orbitals=None)` → the same from MP2 natural occupations; every orbital is kept in `mo_coeff`, ordered core, active, virtual.
-
-## Properties
-
-- `compute_dipole_moment(mol, mo_coeff, rdm1, ncore)` → `(dipole_debye, magnitude)`.
-- `compute_natural_orbitals(rdm1)` → occupations (descending) and orbitals.
-- `compute_mulliken_spin_population(mol, mo_coeff, rdm1_a, rdm1_b, ncore)` → per-atom spin population.
-
 ## Tapering
 
 `taper_hamiltonian(qubit_op, n_qubits, nelec, stabilizers=None)` →

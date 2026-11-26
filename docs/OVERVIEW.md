@@ -11,8 +11,6 @@ them.
 | Module | Responsibility |
 |--------|---------------|
 | `adapt.py` | ADAPT-VQE on Maestro circuits, and `build_pauli_terms` to feed it a divi Hamiltonian. |
-| `active_space.py` | AVAS and MP2-natural-orbital active-space selection. |
-| `properties.py` | Dipole moments, natural orbitals, Mulliken spin populations from active-space RDMs. |
 | `tapering.py` | Z₂ qubit tapering of OpenFermion `QubitOperator`s. |
 | `backends.py` | Maestro CPU/GPU and statevector/MPS settings for ADAPT-VQE, and the GPU licence key. |
 
