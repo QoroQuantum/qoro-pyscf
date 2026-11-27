@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qoro-pyscf"
 version = "0.6.1"
-description = "PySCF tools on divi: VQD and tapering"
+description = "PySCF examples on divi"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11,<3.15"
@@ -32,7 +32,6 @@ classifiers = [
 dependencies = [
     "qoro-divi[chem]",
     "pyscf>=2.14",
-    "openfermion>=1.5",
     "scipy",
     "numpy",
     "qoro-maestro",
@@ -50,14 +49,6 @@ Documentation = "https://qoroquantum.github.io/maestro/d7/d01/python_guide.html"
 Repository = "https://github.com/QoroQuantum/qoro-pyscf"
 Issues = "https://github.com/QoroQuantum/qoro-pyscf/issues"
 
-[dependency-groups]
-dev = [
-    "pytest>=9.1",
-    "pytest-cov",
-    "pytest-mock",
-    "pytest-xdist",
-]
-
 [tool.uv]
 constraint-dependencies = ["fonttools<4.69"]
 
@@ -66,11 +57,3 @@ qoro-divi = { path = "../divi", editable = true }
 
 [tool.setuptools.packages.find]
 include = ["qoro_pyscf*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "default::DeprecationWarning:divi.*",
-    "default::DeprecationWarning:qoro_pyscf.*",
-]

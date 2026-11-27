@@ -1,10 +1,10 @@
 # qoro-pyscf
 
-PySCF tools built on [divi](https://github.com/QoroQuantum/divi) that divi does
-not ship yet: a VQD active-space solver and Z₂ qubit tapering. A ground-state
-VQE as PySCF's `fcisolver` is divi's `divi.qprog.algorithms.VQEFCISolver`,
-ADAPT-VQE is divi's `divi.qprog.algorithms.AdaptVQE`, and QSCI is divi's
-`divi.qprog.ensembles.qsci.QSCISolver`.
+> **Note:** qoro-pyscf's solvers have moved into
+> [divi](https://github.com/QoroQuantum/divi), which is where new work happens.
+> Use divi directly.
+
+PySCF examples built on [divi](https://github.com/QoroQuantum/divi).
 
 ## Installation
 
@@ -13,13 +13,6 @@ The project depends on a local divi checkout next to it (`../divi`):
 ```bash
 uv sync
 ```
-
-## Tools
-
-| Function | Purpose |
-|----------|---------|
-| `VQDSolver` | Ground and excited states by variational quantum deflation, as PySCF's `fcisolver` |
-| `taper_hamiltonian` | Z₂ tapering of an OpenFermion `QubitOperator` |
 
 ## Examples
 
