@@ -7,7 +7,7 @@ The nitrogen of butyronitrile (CH3CH2CH2C≡N) is pulled away from its carbon
 along the bond, all other atoms fixed, from 1.157 Å to 2.749 Å.
 
   Stage 0: CAS(4,4)/STO-3G, 8 qubits, UCCSD with COBYLA on divi.
-  Stage 1: CAS(8,8)/STO-3G, 16 qubits, greedy ADAPT-VQE over doubles.
+  Stage 1: CAS(8,8)/STO-3G, 16 qubits, ADAPT-VQE with Rotosolve on divi.
   Stage 2: CAS(14,14)/6-31G*, 28 qubits, UCCSD with L-BFGS-B on divi.
 
 Each point also gets HF, MP2 and exact CASCI where feasible. Results are saved
@@ -30,10 +30,9 @@ import numpy as np
 from pyscf import gto, mcscf, mp, scf
 
 from divi.backends import MaestroConfig, MaestroSimulator
-from divi.qprog.algorithms import UCCSDAnsatz, VQEFCISolver
-from divi.qprog.optimizers import ScipyMethod, ScipyOptimizer
+from divi.qprog.algorithms import AdaptVQE, UCCSDAnsatz, VQEFCISolver
+from divi.qprog.optimizers import RotosolveOptimizer, ScipyMethod, ScipyOptimizer
 from divi.qprog.problems import MolecularProblem
-from qoro_pyscf import build_pauli_terms, configure_backend, run_adapt_vqe
 
 EQUILIBRIUM_ATOMS = [
     ("C", (0.71951, -0.72284, 0.00000)),
@@ -72,7 +71,7 @@ STAGES = {
         "basis": "sto-3g",
         "ansatz": "adapt",
         "optimizer": "ROTOSOLVE",
-        "maxiter": 100,
+        "maxiter": 10,
     },
     2: {
         "label": "Stage 2 — Extended",
@@ -110,19 +109,17 @@ def make_solver(stage: dict, device: str) -> VQEFCISolver:
 
 
 def run_adapt(mean_field: scf.hf.RHF, stage: dict, device: str) -> float:
-    """Greedy ADAPT-VQE energy over the doubles pool."""
-    norb, nelec = stage["norb"], stage["nelec"]
-    problem = MolecularProblem.from_casci(mean_field, norb, nelec)
-    result = run_adapt_vqe(
-        2 * norb,
-        (problem.n_alpha, problem.n_beta),
-        *build_pauli_terms(problem.hamiltonian),
-        configure_backend(use_gpu=device == "gpu"),
-        pool="d",
-        greedy=True,
-        maxiter_per_step=stage["maxiter"],
+    """ADAPT-VQE energy, re-optimised with Rotosolve after each step."""
+    adapt = AdaptVQE(
+        MolecularProblem.from_casci(mean_field, stage["norb"], stage["nelec"]),
+        optimizer=RotosolveOptimizer(),
+        max_iterations_per_step=stage["maxiter"],
+        backend=MaestroSimulator(
+            maestro_config=MaestroConfig(simulator_type=SIMULATORS[device])
+        ),
     )
-    return result["energy"]
+    adapt.run(perform_final_computation=False)
+    return adapt.best_loss
 
 
 def run_stage(stage_number: int, devices: list[str], quick: bool) -> dict:

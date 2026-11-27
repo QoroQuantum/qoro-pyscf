@@ -15,26 +15,19 @@
 """
 qoro-pyscf
 ==========
-PySCF tools not yet in divi: a VQD active-space solver, ADAPT-VQE and qubit
-tapering.
-Ground-state VQE and QSCI solvers live in divi
+PySCF tools not yet in divi: a VQD active-space solver and qubit tapering.
+Ground-state VQE, ADAPT-VQE and QSCI live in divi
 (:class:`divi.qprog.algorithms.VQEFCISolver`,
+:class:`divi.qprog.algorithms.AdaptVQE`,
 :class:`divi.qprog.ensembles.qsci.QSCISolver`).
 """
 
-from qoro_pyscf.adapt import build_pauli_terms, run_adapt_vqe
-from qoro_pyscf.backends import BackendConfig, configure_backend, set_license_key
 from qoro_pyscf.tapering import TaperingResult, taper_hamiltonian
 from qoro_pyscf.vqd_solver import VQDSolver
 
 __all__ = [
-    "BackendConfig",
     "TaperingResult",
     "VQDSolver",
-    "build_pauli_terms",
-    "configure_backend",
-    "run_adapt_vqe",
-    "set_license_key",
     "taper_hamiltonian",
 ]
 __version__ = "0.6.1"

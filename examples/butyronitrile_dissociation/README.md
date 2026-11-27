@@ -18,7 +18,7 @@ the regime where quantum algorithms like VQE excel.
 | Stage | Active Space | Basis | Qubits | Ansatz | Backend | Purpose |
 |-------|-------------|-------|--------|--------|---------|---------|
 | **0 — CPU Quick** | CAS(4,4) | STO-3G | 8 | UCCSD (COBYLA) | CPU | Local demo, ~20 s |
-| **1 — Baseline** | CAS(8,8) | STO-3G | 16 | ADAPT-VQE (greedy Rotosolve) | GPU recommended | Standard active space |
+| **1 — Baseline** | CAS(8,8) | STO-3G | 16 | ADAPT-VQE (Rotosolve) | GPU recommended | Standard active space |
 | **2 — Extended** | CAS(14,14) | 6-31G* | 28 | UCCSD (L-BFGS-B) | GPU required | Larger space + better basis |
 
 ## Quick Start
